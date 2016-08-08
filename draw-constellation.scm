@@ -61,6 +61,12 @@ exec csi -s $0 "$@"
      (* distance (sin theta) (sin phi))
      (* distance (cos phi)))))
 
+(define (celestial->spherical ra dec distance)
+  (list
+   (* tau (/ ra 24.0))
+   (* tau (/ (- 90.0 dec) 360.0))
+   distance))
+
 (define (cartesian->celestial x y z)
   (let ((r (sqrt (+ (square x) (square y) (square z)))))
     (list
@@ -111,16 +117,72 @@ exec csi -s $0 "$@"
                boundary/celestial))
          (center/cartesian (cartesian-center boundary/cartesian))
          (center/celestial (apply cartesian->celestial center/cartesian))
-         (center/cartesian (cons 1.0 (cdr center/cartesian))) ;; we draw from x=1.0
-         (radius (fold (lambda (point radius)
-                         (max radius (distance3 center/cartesian point)))
-                       0
-                       boundary/cartesian)))
-    (fmt #t (pretty boundary/cartesian) nl
+         (center/cartesian (cons 1.0 (cdr center/cartesian)))) ;; we draw from x=1.0
+    (fmt #t
+         ;; (pretty boundary/cartesian) nl
          "center/cartesian: " center/cartesian nl
-         "center/celestial: " center/celestial nl
-         "radius: " radius nl)
-    (let* ((scale (alist-ref 'scale options))
+         "center/celestial: " center/celestial nl)
+    (let* ((center/spherical (apply celestial->spherical center/celestial))
+           (center-theta #;0 (car center/spherical))
+           (center-phi #;(* 0.25 tau) (cadr center/spherical))
+           (boundary/spherical (map (match-lambda ((ra dec) (celestial->spherical ra dec 1.0))) boundary/celestial))
+           (boundary/cartesian2
+            (map
+             (match-lambda
+               ((theta phi distance)
+                (let* (;; stereographic
+                       ;;
+                       ;; (k (/ 2.0 (+ 1.0
+                       ;;              (* (sin center-phi) (sin phi))
+                       ;;              (* (cos center-phi) (cos phi) (cos (- theta center-theta))))))
+                       ;; (x (* k (cos phi) (sin (- theta center-theta))))
+                       ;; (y (* k (- (* (cos center-phi) (sin phi))
+                       ;;            (* (sin center-phi) (cos phi) (cos (- theta center-theta))))))
+
+                       ;; gnomonic
+                       ;;
+                       ;; (cos-c (+ (* (sin center-phi) (sin phi))
+                       ;;           (* (cos center-phi) (cos phi) (cos (- theta center-theta)))))
+                       ;; (x (/ (* (cos phi) (sin (- theta center-theta)))
+                       ;;       cos-c))
+                       ;; (y (/ (- (* (cos center-phi) (sin phi)) (* (sin center-phi) (cos phi) (cos (- theta center-theta))))
+                       ;;       cos-c))
+
+                       ;; lambert azimuthal equal area
+                       ;;
+                       (k (sqrt (/ 2.0 (+ 1.0 (* (sin center-phi) (sin phi)) (* (cos center-phi) (cos phi) (cos (- theta center-theta)))))))
+                       (x (* k (cos phi) (sin (- theta center-theta))))
+                       (y (* k (- (* (cos center-phi) (sin phi)) (* (sin center-phi) (cos phi) (cos (- theta center-theta))))))
+                       )
+
+                  #;(fmt #t theta " " phi " -> " x " " y nl)
+                  (list x y))))
+             boundary/spherical))
+           (radius (fold (lambda (point radius)
+                           (max radius (sqrt (apply + (map square point)))))
+                         0
+                         boundary/cartesian2)))
+      (fmt #t "radius: " radius nl)
+      ;; drawing
+      (let* ((scale (alist-ref 'scale options))
+             (wid (inexact->exact (ceiling (* 2 radius scale))))
+             (hei (inexact->exact (ceiling (* 2 radius scale))))
+             (image (image-create wid hei))
+             (image-filename (string-append (string-downcase (->string constellation)) ".png"))
+             (black (color/rgba 0 0 0 255)))
+        (fmt #t "wid: " wid nl
+             "hei: " hei nl)
+        (for-each
+         (match-lambda
+           ((x y)
+            (let ((x (inexact->exact (round (* scale (+ radius x)))))
+                  (y (inexact->exact (round (* scale (+ radius y))))))
+              (fmt #t x " " y nl)
+              (image-draw-pixel image black x y))))
+         boundary/cartesian2)
+        (image-save image image-filename)))
+
+    #;(let* ((scale (alist-ref 'scale options))
            (wid (inexact->exact (ceiling (* radius scale 2))))
            (hei (inexact->exact (ceiling (* radius scale 2))))
            (image (image-create wid hei))
