@@ -249,5 +249,5 @@ exec csi -s $0 "$@"
                       '((scale . 1000))))) ;; default options
        (main options)))
     ((options (constellation . rest))
-     (fmt #t "Too many operands" nl)
+     (fmt #t (usage-header) nl (args:usage opts) nl)
      (exit 1))))
