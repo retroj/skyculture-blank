@@ -212,13 +212,15 @@ exec csi -s $0 "$@"
        boundary/cartesian/centered)
       (image-save image image-filename))))
 
+(define (usage-header)
+  (fmt #f "usage: draw-constellation [options] <const>" nl nl
+       " const: IAU abbreviation of a constellation (ori)" nl))
+
 (define opts
   (list
    (args:make-option (h help) #:none
                      "help"
-     (fmt #t "usage: draw-constellation [options] <const>" nl nl
-          " const: IAU abbreviation of a constellation (ori)" nl nl
-          (args:usage opts) nl)
+     (fmt #t (usage-header) nl (args:usage opts) nl)
      (exit 1))
 
    (args:make-option (o options-file) #:required
@@ -232,7 +234,7 @@ exec csi -s $0 "$@"
     (lambda () (args:parse (command-line-arguments) opts))
   (match-lambda*
     ((options ())
-     (fmt #t "Constellation must be specified" nl)
+     (fmt #t (usage-header) nl (args:usage opts) nl)
      (exit 1))
     ((options (constellation))
      (let* ((constellation (string->symbol (string-upcase constellation)))
