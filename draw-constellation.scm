@@ -41,7 +41,12 @@ exec csi -s $0 "$@"
 
 (define boundaries-filename "bound_in_20.txt")
 
-(define tau 6.283185307179586)
+;;
+;; Utilities
+;;
+
+(define pi (* 2.0 (asin 1.0)))
+(define tau (* 4.0 (asin 1.0)))
 
 (define (square x) (* x x))
 
@@ -61,11 +66,10 @@ exec csi -s $0 "$@"
      (* distance (sin theta) (sin phi))
      (* distance (cos phi)))))
 
-(define (celestial->spherical ra dec distance)
+(define (celestial->spherical ra dec)
   (list
    (* tau (/ ra 24.0))
-   (* tau (/ (- 90.0 dec) 360.0))
-   distance))
+   (* tau (/ dec 360.0))))
 
 (define (cartesian->celestial x y z)
   (let ((r (sqrt (+ (square x) (square y) (square z)))))
@@ -80,6 +84,34 @@ exec csi -s $0 "$@"
    (fold (lambda (point sum) (map + point sum))
          '(0 0 0)
          points)))
+
+
+
+;;
+;; Projections
+;;
+
+;; Azimuthal Equidistant
+;;
+
+(define (azimuthal-equidistant point center)
+  (match-let (((ra dec) point)
+              ((center-ra center-dec) center))
+    (let* ((cosc (+ (* (sin center-dec) (sin dec))
+                    (* (cos center-dec) (cos dec) (cos (- ra center-ra)))))
+           (c (acos cosc)))
+      (if (< (abs (- c pi)) 0.0001)
+          (list #f #f) ;; error or NaN
+          (let* ((k (if (zero? c) 1 (/ c (sin c))))
+                 (x (* k (cos dec) (sin (- ra center-ra))))
+                 (y (* k (- (* (cos center-dec) (sin dec))
+                            (* (sin center-dec) (cos dec) (cos (- ra center-ra)))))))
+            (list (- x) (- y)))))))
+
+
+;;
+;; Catalog
+;;
 
 (define (close-loop coords)
   (append coords (list (first coords))))
@@ -109,107 +141,37 @@ exec csi -s $0 "$@"
              (else ;; skip rest of file
               result)))))))))
 
+
+;;
+;; Main
+;;
+
 (define (main options)
   (let* ((constellation (alist-ref 'constellation options))
          (boundary/celestial (read-boundary constellation))
+         (boundary/spherical
+          (map (lambda (p) (apply celestial->spherical p))
+               boundary/celestial))
          (boundary/cartesian
           (map (match-lambda ((ra dec) (celestial->cartesian ra dec 1.0)))
                boundary/celestial))
          (center/cartesian (cartesian-center boundary/cartesian))
-         (center/celestial (apply cartesian->celestial center/cartesian))
-         (center/cartesian (cons 1.0 (cdr center/cartesian)))) ;; we draw from x=1.0
-    (fmt #t
-         ;; (pretty boundary/cartesian) nl
-         "center/cartesian: " center/cartesian nl
-         "center/celestial: " center/celestial nl)
-    (let* ((center/spherical (apply celestial->spherical center/celestial))
-           (center-theta #;0 (car center/spherical))
-           (center-phi #;(* 0.25 tau) (cadr center/spherical))
-           (boundary/spherical (map (match-lambda ((ra dec) (celestial->spherical ra dec 1.0))) boundary/celestial))
-           (boundary/cartesian2
-            (map
-             (match-lambda
-               ((theta phi distance)
-                (let* (;; stereographic
-                       ;;
-                       ;; (k (/ 2.0 (+ 1.0
-                       ;;              (* (sin center-phi) (sin phi))
-                       ;;              (* (cos center-phi) (cos phi) (cos (- theta center-theta))))))
-                       ;; (x (* k (cos phi) (sin (- theta center-theta))))
-                       ;; (y (* k (- (* (cos center-phi) (sin phi))
-                       ;;            (* (sin center-phi) (cos phi) (cos (- theta center-theta))))))
-
-                       ;; gnomonic
-                       ;;
-                       ;; (cos-c (+ (* (sin center-phi) (sin phi))
-                       ;;           (* (cos center-phi) (cos phi) (cos (- theta center-theta)))))
-                       ;; (x (/ (* (cos phi) (sin (- theta center-theta)))
-                       ;;       cos-c))
-                       ;; (y (/ (- (* (cos center-phi) (sin phi)) (* (sin center-phi) (cos phi) (cos (- theta center-theta))))
-                       ;;       cos-c))
-
-                       ;; lambert azimuthal equal area
-                       ;;
-                       (k (sqrt (/ 2.0 (+ 1.0 (* (sin center-phi) (sin phi)) (* (cos center-phi) (cos phi) (cos (- theta center-theta)))))))
-                       (x (* k (cos phi) (sin (- theta center-theta))))
-                       (y (* k (- (* (cos center-phi) (sin phi)) (* (sin center-phi) (cos phi) (cos (- theta center-theta))))))
-                       )
-
-                  #;(fmt #t theta " " phi " -> " x " " y nl)
-                  (list x y))))
-             boundary/spherical))
-           (radius (fold (lambda (point radius)
-                           (max radius (sqrt (apply + (map square point)))))
-                         0
-                         boundary/cartesian2)))
-      (fmt #t "radius: " radius nl)
-      ;; drawing
-      (let* ((scale (alist-ref 'scale options))
-             (wid (inexact->exact (ceiling (* 2 radius scale))))
-             (hei (inexact->exact (ceiling (* 2 radius scale))))
-             (image (image-create wid hei))
-             (image-filename (string-append (string-downcase (->string constellation)) ".png"))
-             (black (color/rgba 0 0 0 255)))
-        (fmt #t "wid: " wid nl
-             "hei: " hei nl)
-        (for-each
-         (match-lambda
-           ((x y)
-            (let ((x (inexact->exact (round (* scale (+ radius x)))))
-                  (y (inexact->exact (round (* scale (+ radius y))))))
-              (fmt #t x " " y nl)
-              (image-draw-pixel image black x y))))
-         boundary/cartesian2)
-        (image-save image image-filename)))
-
-    #;(let* ((scale (alist-ref 'scale options))
-           (wid (inexact->exact (ceiling (* radius scale 2))))
-           (hei (inexact->exact (ceiling (* radius scale 2))))
+         (center/celestial (take (apply cartesian->celestial center/cartesian) 2))
+         (center/spherical (apply celestial->spherical center/celestial)))
+    ;; drawing
+    (let* ((scale (alist-ref 'scale options))
+           (wid (inexact->exact (ceiling (* 2 scale))))
+           (hei (inexact->exact (ceiling (* 2 scale))))
            (image (image-create wid hei))
            (image-filename (string-append (string-downcase (->string constellation)) ".png"))
-           ;; 'center' the constellation at celestial 0 0.  celestial
-           ;; points converted to cartesian will then have a y value that
-           ;; maps to x in the image, and a z value that maps to -y
-           (boundary/celestial/centered
-            (close-loop
-             (map (match-lambda ((ra dec)
-                                 (list (- ra (car center/celestial))
-                                       (- dec (cadr center/celestial)))))
-                  boundary/celestial)))
-           (boundary/cartesian/centered
-            (map (match-lambda ((ra dec) (celestial->cartesian ra dec 1.0)))
-                 boundary/celestial/centered))
            (black (color/rgba 0 0 0 255)))
-      ;; plot the boundary
       (for-each
-       (match-lambda
-         ((_ x y)
-          (fmt #t x " " y " -> ")
-          (let ((x (inexact->exact (round (* scale (- radius x)))))
-                (y (inexact->exact (round (* scale (- radius y))))))
-            (fmt #t x " " y nl)
-            (image-draw-pixel image black x y))))
-       boundary/cartesian/centered)
+       (lambda (point)
+         (match-let (((x y) (azimuthal-equidistant point center/spherical)))
+           (let ((x (inexact->exact (round (* (+ 1 x) scale))))
+                 (y (inexact->exact (round (* (+ 1 y) scale)))))
+             (image-draw-pixel image black x y))))
+       boundary/spherical)
       (image-save image image-filename))))
 
 (define (usage-header)
