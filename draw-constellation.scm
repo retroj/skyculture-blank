@@ -41,6 +41,11 @@ exec csi -s $0 "$@"
 
 (define boundaries-filename "bound_in_20.txt")
 
+(define lines-filename "lines_in_20.txt")
+
+(define verts-filename "verts_18.txt")
+
+
 ;;
 ;; Utilities
 ;;
@@ -141,6 +146,59 @@ exec csi -s $0 "$@"
              (else ;; skip rest of file
               result)))))))))
 
+(define (read-constellation-lines constellations)
+  (define (parse-verts-line line)
+    (match (with-input-from-string line
+             (lambda ()
+               (let loop ((token (read))
+                          (tokens '()))
+                 (cond
+                  ((eof-object? token) (reverse! tokens))
+                  (else (loop (read) (cons token tokens)))))))
+      ((key _ra _dec . constellations) (cons key constellations))
+      (else #f))) ;;XXX: error - malformed line
+  (define (parse-lines-line line)
+    (with-input-from-string line
+      (lambda ()
+        (let* ((ra (read))
+               (dec (read))
+               (verts (->string (read))))
+          (match (string-split verts ":")
+            ((vert-a vert-b) (values (string->number vert-a)
+                                     (string->number vert-b)
+                                     ra dec))
+            (else #f)))))) ;;XXX: error - malformed line
+  (let ((vertex-keys (map parse-verts-line
+                          (with-input-from-file verts-filename
+                            read-lines))))
+    (define (care-about-verts? a b)
+      (and-let* ((aconst (alist-ref a vertex-keys))
+                 (bconst (alist-ref b vertex-keys)))
+        (and (any (lambda (x) (member x constellations)) aconst)
+             (any (lambda (x) (member x constellations)) bconst))))
+    (with-input-from-file lines-filename
+      (lambda ()
+        (let loop ((line (read-line))
+                   (current-segment #f)
+                   (result (list)))
+          (cond
+           ((eof-object? line) result)
+           (else
+            (receive (vert-a vert-b ra dec) (parse-lines-line line)
+              (cond
+               ((care-about-verts? vert-a vert-b)
+                (let ((segment (list vert-a vert-b)))
+                  (if (equal? current-segment segment)
+                      (loop (read-line)
+                            current-segment
+                            (cons (cons (list ra dec) (car result))
+                                  (cdr result)))
+                      (loop (read-line)
+                            segment
+                            (cons (list (list ra dec))
+                                  result)))))
+               (else (loop (read-line) current-segment result)))))))))))
+
 
 ;;
 ;; Main
@@ -173,6 +231,42 @@ exec csi -s $0 "$@"
              (image-draw-pixel image black x y))))
        boundary/spherical)
       (image-save image image-filename))))
+
+(define (main/lines options)
+  (let* ((constellation (alist-ref 'constellation options))
+         (boundary/celestial (read-constellation-lines (list constellation))))
+    (let* ((boundary/spherical
+            (map (lambda (segment)
+                   (map (lambda (p) (apply celestial->spherical p))
+                        segment))
+                 boundary/celestial))
+           (boundary/cartesian
+            (apply append
+                   (map (lambda (segment)
+                          (map (match-lambda ((ra dec) (celestial->cartesian ra dec 1.0)))
+                               segment))
+                        boundary/celestial)))
+           (center/cartesian (cartesian-center boundary/cartesian))
+           (center/celestial (take (apply cartesian->celestial center/cartesian) 2))
+           (center/spherical (apply celestial->spherical center/celestial)))
+           ;; drawing
+           (let* ((scale (alist-ref 'scale options))
+                  (wid (inexact->exact (ceiling (* 2 scale))))
+                  (hei (inexact->exact (ceiling (* 2 scale))))
+                  (image (image-create wid hei))
+                  (image-filename (string-append (string-downcase (->string constellation)) ".png"))
+                  (black (color/rgba 0 0 0 255)))
+             (for-each
+              (lambda (segment)
+                (for-each
+                 (lambda (point)
+                   (match-let (((x y) (azimuthal-equidistant point center/spherical)))
+                     (let ((x (inexact->exact (round (* (+ 1 x) scale))))
+                           (y (inexact->exact (round (* (+ 1 y) scale)))))
+                       (image-draw-pixel image black x y))))
+                 segment))
+              boundary/spherical)
+             (image-save image image-filename)))))
 
 (define (usage-header)
   (fmt #f "usage: draw-constellation [options] <const>" nl nl
@@ -209,7 +303,7 @@ exec csi -s $0 "$@"
                                  (with-input-from-file options-file read))
                          '())
                       '((scale . 1000))))) ;; default options
-       (main options)))
+       (main/lines options)))
     ((options (constellation . rest))
      (fmt #t (usage-header) nl (args:usage opts) nl)
      (exit 1))))
