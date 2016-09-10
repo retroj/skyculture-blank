@@ -301,9 +301,9 @@ exec csi -s $0 "$@"
                       `((constellation . ,constellation))
                       options
                       (if options-file
-                         (append options
-                                 (with-input-from-file options-file read))
-                         '())
+                          (append options
+                                  (with-input-from-file options-file read))
+                          '())
                       '((scale . 1000))))) ;; default options
        (main/lines options)))
     ((options (constellation . rest))
