@@ -240,8 +240,8 @@ exec csi -s $0 "$@"
              (pheight (- ymax ymin))
              (aspect (/ pwidth pheight)))
         ;; drawing
-        (let* ((width (inexact->exact (+ 1 (ceiling (* pwidth scale)))))
-               (height (inexact->exact (+ 1 (ceiling (* pheight scale)))))
+        (let* ((width (inexact->exact (+ 1 (round (* pwidth scale)))))
+               (height (inexact->exact (+ 1 (round (* pheight scale)))))
                (image (image-create width height))
                (image-filename (string-append (string-downcase (->string constellation)) ".png"))
                (black (color/rgba 0 0 0 255)))
