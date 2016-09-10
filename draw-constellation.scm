@@ -41,6 +41,9 @@ exec csi -s $0 "$@"
 (load "catalog-pbarbier-constellation-boundaries")
 (import catalog-pbarbier-constellation-boundaries)
 
+(load "catalog-hyg-database")
+(import catalog-hyg-database)
+
 
 ;;
 ;; Utilities
@@ -162,6 +165,20 @@ exec csi -s $0 "$@"
                           ((x2 y2) (apply point-to-canvas (first points))))
                 (image-draw-line image black x1 y1 x2 y2)
                 (loop (list x2 y2) (cdr points)))))
+          ;; drawing stars
+          (let ((stars (hyg-get-records/constellation
+                           'leo
+                           (lambda (rec) (< (alist-ref 'mag rec) 4.5)))))
+            (for-each
+             (lambda (star)
+               (apply image-draw-pixel
+                      image black
+                      (apply point-to-canvas
+                             (azimuthal-equidistant
+                              (list (alist-ref 'ra star)
+                                    (alist-ref 'dec star))
+                              center/celestial))))
+             stars))
           (image-save image image-filename))))))
 
 (define (usage-header)
