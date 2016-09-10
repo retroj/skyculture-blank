@@ -50,8 +50,9 @@ exec csi -s $0 "$@"
 ;; Utilities
 ;;
 
-(define pi (* 2.0 (asin 1.0)))
 (define tau (* 4.0 (asin 1.0)))
+(define tau/2 (* 2.0 (asin 1.0)))
+(define tau/4 (asin 1.0))
 
 (define (square x) (* x x))
 
@@ -64,14 +65,14 @@ exec csi -s $0 "$@"
         (square (- z1 z2))))))
 
 (define (celestial->cartesian ra dec distance)
-  (let ((theta (* tau (/ ra 24.0)))
-        (phi (* tau (/ (- 90.0 dec) 360.0))))
+  (let ((theta ra)
+        (phi (- tau/4 dec)))
     (list
      (* distance (cos theta) (sin phi))
      (* distance (sin theta) (sin phi))
      (* distance (cos phi)))))
 
-(define (celestial->spherical ra dec)
+(define (celestial-units->radians ra dec)
   (list
    (* tau (/ ra 24.0))
    (* tau (/ dec 360.0))))
@@ -79,8 +80,8 @@ exec csi -s $0 "$@"
 (define (cartesian->celestial x y z)
   (let ((r (sqrt (+ (square x) (square y) (square z)))))
     (list
-     (* 24.0 (/ (atan y x) tau))
-     (* 360.0 (/ (asin (/ z r)) tau))
+     (atan y x)
+     (asin (/ z r))
      r)))
 
 (define (cartesian-center points)
@@ -90,6 +91,21 @@ exec csi -s $0 "$@"
          '(0 0 0)
          points)))
 
+(define (cartesian2-bounding-box points)
+  (let loop ((xmin (caar points))
+             (ymin (cadar points))
+             (xmax (caar points))
+             (ymax (cadar points))
+             (points (cdr points)))
+    (if (null? points)
+        (list xmin ymin xmax ymax)
+        (let ((x (caar points))
+              (y (cadar points)))
+          (loop (min x xmin)
+                (min y ymin)
+                (max x xmax)
+                (max y ymax)
+                (cdr points))))))
 
 
 ;;
@@ -105,7 +121,7 @@ exec csi -s $0 "$@"
     (let* ((cosc (+ (* (sin center-dec) (sin dec))
                     (* (cos center-dec) (cos dec) (cos (- ra center-ra)))))
            (c (acos cosc)))
-      (if (< (abs (- c pi)) 0.0001)
+      (if (< (abs (- c tau/2)) 0.0001)
           (list #f #f) ;; error or NaN
           (let* ((k (if (zero? c) 1 (/ c (sin c))))
                  (x (* k (cos dec) (sin (- ra center-ra))))
@@ -140,7 +156,8 @@ exec csi -s $0 "$@"
             (cond
              ((eq? const constellation)
               (loop (read-line)
-                    (cons (list ra dec) result)))
+                    (cons (celestial-units->radians ra dec)
+                          result)))
              ((null? result)
               (loop (read-line) result))
              (else ;; skip rest of file
@@ -191,11 +208,12 @@ exec csi -s $0 "$@"
                   (if (equal? current-segment segment)
                       (loop (read-line)
                             current-segment
-                            (cons (cons (list ra dec) (car result))
+                            (cons (cons (celestial-units->radians ra dec)
+                                        (car result))
                                   (cdr result)))
                       (loop (read-line)
                             segment
-                            (cons (list (list ra dec))
+                            (cons (list (celestial-units->radians ra dec))
                                   result)))))
                (else (loop (read-line) current-segment result)))))))))))
 
@@ -204,69 +222,37 @@ exec csi -s $0 "$@"
 ;; Main
 ;;
 
-(define (main/boundary options)
+(define (main options)
   (let* ((constellation (alist-ref 'constellation options))
          (boundary/celestial (read-boundary constellation))
-         (boundary/spherical
-          (map (lambda (p) (apply celestial->spherical p))
-               boundary/celestial))
          (boundary/cartesian
           (map (match-lambda ((ra dec) (celestial->cartesian ra dec 1.0)))
                boundary/celestial))
          (center/cartesian (cartesian-center boundary/cartesian))
          (center/celestial (take (apply cartesian->celestial center/cartesian) 2))
-         (center/spherical (apply celestial->spherical center/celestial)))
-    ;; drawing
-    (let* ((scale (alist-ref 'scale options))
-           (wid (inexact->exact (ceiling (* 2 scale))))
-           (hei (inexact->exact (ceiling (* 2 scale))))
-           (image (image-create wid hei))
-           (image-filename (string-append (string-downcase (->string constellation)) ".png"))
-           (black (color/rgba 0 0 0 255)))
-      (for-each
-       (lambda (point)
-         (match-let (((x y) (azimuthal-equidistant point center/spherical)))
-           (let ((x (inexact->exact (round (* (+ 1 x) scale))))
-                 (y (inexact->exact (round (* (+ 1 y) scale)))))
-             (image-draw-pixel image black x y))))
-       boundary/spherical)
-      (image-save image image-filename))))
-
-(define (main/lines options)
-  (let* ((constellation (alist-ref 'constellation options))
-         (boundary/celestial (read-constellation-lines (list constellation))))
-    (let* ((boundary/spherical
-            (map (lambda (segment)
-                   (map (lambda (p) (apply celestial->spherical p))
-                        segment))
-                 boundary/celestial))
-           (boundary/cartesian
-            (apply append
-                   (map (lambda (segment)
-                          (map (match-lambda ((ra dec) (celestial->cartesian ra dec 1.0)))
-                               segment))
-                        boundary/celestial)))
-           (center/cartesian (cartesian-center boundary/cartesian))
-           (center/celestial (take (apply cartesian->celestial center/cartesian) 2))
-           (center/spherical (apply celestial->spherical center/celestial)))
-           ;; drawing
-           (let* ((scale (alist-ref 'scale options))
-                  (wid (inexact->exact (ceiling (* 2 scale))))
-                  (hei (inexact->exact (ceiling (* 2 scale))))
-                  (image (image-create wid hei))
-                  (image-filename (string-append (string-downcase (->string constellation)) ".png"))
-                  (black (color/rgba 0 0 0 255)))
-             (for-each
-              (lambda (segment)
-                (for-each
-                 (lambda (point)
-                   (match-let (((x y) (azimuthal-equidistant point center/spherical)))
-                     (let ((x (inexact->exact (round (* (+ 1 x) scale))))
-                           (y (inexact->exact (round (* (+ 1 y) scale)))))
-                       (image-draw-pixel image black x y))))
-                 segment))
-              boundary/spherical)
-             (image-save image image-filename)))))
+         (boundary/cartesian2 (map (lambda (point)
+                                     (azimuthal-equidistant point center/celestial))
+                                   boundary/celestial))
+         (projection-bbox (cartesian2-bounding-box boundary/cartesian2)))
+    (match-let (((xmin ymin xmax ymax) projection-bbox))
+      (let* ((scale (alist-ref 'scale options))
+             (pwidth (- xmax xmin))
+             (pheight (- ymax ymin))
+             (aspect (/ pwidth pheight)))
+        ;; drawing
+        (let* ((width (inexact->exact (+ 1 (ceiling (* pwidth scale)))))
+               (height (inexact->exact (+ 1 (ceiling (* pheight scale)))))
+               (image (image-create width height))
+               (image-filename (string-append (string-downcase (->string constellation)) ".png"))
+               (black (color/rgba 0 0 0 255)))
+          (for-each
+           (match-lambda
+             ((x y)
+              (let ((x (inexact->exact (round (* (- x xmin) scale))))
+                    (y (inexact->exact (round (* (- y ymin) scale)))))
+                (image-draw-pixel image black x y))))
+           boundary/cartesian2)
+          (image-save image image-filename))))))
 
 (define (usage-header)
   (fmt #f "usage: draw-constellation [options] <const>" nl nl
@@ -305,7 +291,7 @@ exec csi -s $0 "$@"
                                   (with-input-from-file options-file read))
                           '())
                       '((scale . 1000))))) ;; default options
-       (main/lines options)))
+       (main options)))
     ((options (constellation . rest))
      (fmt #t (usage-header) nl (args:usage opts) nl)
      (exit 1))))
