@@ -4,8 +4,8 @@
 This is a program to produce a blank skyculture.  Skyculture is a format
 used by the desktop planetarium program Stellarium to hold artwork for
 constellations.  Skyculture format also has the advantages of simplicity,
-comprehensiveness and being open, so it can be straightforwardly converted
-to other formats when needed.
+comprehensiveness, and being open, so it can be straightforwardly
+converted to other formats when needed.
 
 Nevertheless, there is a certain amount of difficulty in producing a
 skyculture, and this project seeks to assist with that by providing tools
