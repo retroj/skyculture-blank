@@ -274,16 +274,18 @@ exec csi -s $0 "$@"
 
 (define opts
   (list
-   (args:make-option (h help) #:none
-                     "help"
+   (args:make-option
+       (h help) #:none "help"
      (fmt #t (usage-header) nl (args:usage opts) nl)
      (exit 1))
 
-   (args:make-option (o options-file) #:required
-                     "load additional options alist from file")
+   (args:make-option
+       (o options-file) #:required
+       "load additional options alist from file")
 
-   (args:make-option (scale) #:required
-                     "image height and width are radius * ARG, (0 < radius < 1)"
+   (args:make-option
+       (scale) #:required
+       "image height and width are radius * ARG, (0 < radius < 1)"
      (set! arg (string->number arg)))))
 
 (call-with-values
