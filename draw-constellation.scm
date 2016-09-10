@@ -204,7 +204,7 @@ exec csi -s $0 "$@"
 ;; Main
 ;;
 
-(define (main options)
+(define (main/boundary options)
   (let* ((constellation (alist-ref 'constellation options))
          (boundary/celestial (read-boundary constellation))
          (boundary/spherical
