@@ -1,0 +1,6 @@
+#!/bin/sh -e
+
+wget 'http://pbarbier.com/constellations/verts_18.txt'
+wget 'http://pbarbier.com/constellations/bound_in_20.txt'
+wget 'http://pbarbier.com/constellations/lines_in_20.txt'
+wget 'http://pbarbier.com/constellations/centers_20.txt'

@@ -36,11 +36,11 @@
      matchable
      ports)
 
-(define boundaries-filename "bound_in_20.txt")
+(define boundaries-filename "data/constellations-pbarbier/bound_in_20.txt")
 
-(define lines-filename "lines_in_20.txt")
+(define lines-filename "data/constellations-pbarbier/lines_in_20.txt")
 
-(define verts-filename "verts_18.txt")
+(define verts-filename "data/constellations-pbarbier/verts_18.txt")
 
 (define tau (* 4.0 (asin 1.0)))
 

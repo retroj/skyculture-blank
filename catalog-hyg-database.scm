@@ -93,7 +93,7 @@
 (define hyg-database-fields #f)
 (define hyg-database-field-converters #f)
 
-(define hyg-database (make-parameter "hygdata_v3.csv"))
+(define hyg-database (make-parameter "data/HYG-Database/hygdata_v3.csv"))
 ;;(define hyg-database (make-parameter "hygfull.csv"))
 
 
