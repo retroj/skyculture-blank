@@ -118,7 +118,7 @@
 (define (hyg-get-records/pattern pattern)
   (with-input-from-pipe
    (string-join
-    (map qs (list "grep" pattern (hyg-database)))
+    (map qs (list "grep" "-i" pattern (hyg-database)))
     " ")
    read-lines))
 
@@ -174,7 +174,7 @@
       "," #t)))))
 
 (define (hyg-get-records/constellation constellation #!optional (pred identity))
-  (let* ((pattern (fmt #f "," (string-titlecase (->string constellation)) ","))
+  (let* ((pattern (fmt #f "," constellation ","))
          (records-unfiltered (hyg-get-records/pattern pattern)))
     (filter
      (lambda (rec)

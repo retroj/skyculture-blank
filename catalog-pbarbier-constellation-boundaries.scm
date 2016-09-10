@@ -30,7 +30,7 @@
 
 (import chicken scheme)
 
-(use (srfi 1)
+(use (srfi 1 13)
      data-structures
      extras
      matchable
@@ -49,6 +49,9 @@
    (* tau (/ ra 24.0))
    (* tau (/ dec 360.0))))
 
+(define (constellation-normalize const)
+  (string->symbol (string-downcase (symbol->string const))))
+
 (define (read-boundary constellation)
   (define (parse-line line)
     (with-input-from-string line
@@ -56,7 +59,7 @@
         (let* ((ra (read))
                (dec (read))
                (const (read)))
-          (values ra dec const)))))
+          (values ra dec (constellation-normalize const))))))
   (with-input-from-file boundaries-filename
     (lambda ()
       (let loop ((line (read-line))
@@ -84,7 +87,8 @@
                  (cond
                   ((eof-object? token) (reverse! tokens))
                   (else (loop (read) (cons token tokens)))))))
-      ((key _ra _dec . constellations) (cons key constellations))
+      ((key _ra _dec . constellations)
+       (cons key (map constellation-normalize constellations)))
       (else #f))) ;;XXX: error - malformed line
   (define (parse-lines-line line)
     (with-input-from-string line
@@ -128,7 +132,5 @@
                             (cons (list (celestial-units->radians ra dec))
                                   result)))))
                (else (loop (read-line) current-segment result)))))))))))
-
-
 
 )

@@ -152,7 +152,7 @@ exec csi -s $0 "$@"
         (let* ((width (inexact->exact (+ 1 (round (* pwidth scale)))))
                (height (inexact->exact (+ 1 (round (* pheight scale)))))
                (image (image-create width height))
-               (image-filename (string-append (string-downcase (->string constellation)) ".png"))
+               (image-filename (string-append (->string constellation) ".png"))
                (black (color/rgba 0 0 0 255))
                (points (close-loop boundary/cartesian2)))
           (define (point-to-canvas x y)
@@ -167,8 +167,8 @@ exec csi -s $0 "$@"
                 (loop (list x2 y2) (cdr points)))))
           ;; drawing stars
           (let ((stars (hyg-get-records/constellation
-                           'leo
-                           (lambda (rec) (< (alist-ref 'mag rec) 4.5)))))
+                        constellation
+                        (lambda (rec) (< (alist-ref 'mag rec) 4.5)))))
             (for-each
              (lambda (star)
                (apply image-draw-pixel
@@ -208,7 +208,7 @@ exec csi -s $0 "$@"
      (fmt #t (usage-header) nl (args:usage opts) nl)
      (exit 1))
     ((options (constellation))
-     (let* ((constellation (string->symbol (string-upcase constellation)))
+     (let* ((constellation (string->symbol (string-downcase constellation)))
             (options-file (alist-ref 'options-file options))
             (options (append
                       `((constellation . ,constellation))
