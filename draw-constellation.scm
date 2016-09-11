@@ -223,7 +223,7 @@ exec csi -s $0 "$@"
    (alist-ref 'constellations options)))
 
 (define (usage-header)
-  (fmt #f "usage: draw-constellation [options] <const>" nl nl
+  (fmt #f "usage: draw-constellation [options] [const] ..." nl nl
        " const: IAU abbreviation of a constellation (ori)" nl))
 
 (define opts
@@ -242,17 +242,28 @@ exec csi -s $0 "$@"
        "image height and width are radius * ARG, (0 < radius < 1)"
      (set! arg (string->number arg)))))
 
-(call-with-values
-    (lambda () (args:parse (command-line-arguments) opts))
-  (lambda (options . constellations)
-    (let ((options-file (alist-ref 'options-file options)))
-      (let ((options (append
-                      options
-                      (if options-file
-                          (with-input-from-file options-file read)
-                          '())
-                      '((scale . 1000))))) ;; default options
-        ;; constellations given on the command line tell which ones to draw,
-        ;; but the draw options should still be looked up from within the
-        ;; options file.
-        (main options)))))
+(receive (options constellations)
+    (args:parse (command-line-arguments) opts)
+  (let* ((options-file (alist-ref 'options-file options))
+         (options-file-options
+          (if options-file
+              (with-input-from-file options-file read)
+              '()))
+         (options-constellations
+          (alist-ref 'constellations options-file-options eq? '()))
+         (constellations
+          (if (null? constellations)
+              options-constellations
+              (map (lambda (constellation)
+                     (or (assq constellation options-constellations)
+                         constellation))
+                   (map (o string->symbol string-downcase) constellations)))))
+    (when (null? constellations)
+      (fmt #t "No constellations given in options file or command-line."
+           nl nl (usage-header) nl (args:usage opts) nl)
+      (exit 1))
+    (main (append
+           `((constellations . ,constellations))
+           options
+           options-file-options
+           '((scale . 1000)))))) ;; default options
