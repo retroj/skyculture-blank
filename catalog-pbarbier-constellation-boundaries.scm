@@ -33,6 +33,7 @@
 (use (srfi 1 13)
      data-structures
      extras
+     fmt
      matchable
      ports)
 
@@ -52,7 +53,7 @@
 (define (constellation-normalize const)
   (string->symbol (string-downcase (symbol->string const))))
 
-(define (read-boundary constellation)
+(define (%read-boundary constellation)
   (define (parse-line line)
     (with-input-from-string line
       (lambda ()
@@ -77,6 +78,14 @@
               (loop (read-line) result))
              (else ;; skip rest of file
               result)))))))))
+
+(define (read-boundary constellation)
+  (let ((boundary (%read-boundary constellation)))
+    (cond
+     ((null? boundary)
+      (fmt #t "Unknown constellation: " constellation nl)
+      (exit 1))
+     (else boundary))))
 
 (define (read-constellation-lines constellations)
   (define (parse-verts-line line)
