@@ -168,16 +168,27 @@ exec csi -s $0 "$@"
           ;; drawing stars
           (let ((stars (hyg-get-records/constellation
                         constellation
-                        (lambda (rec) (< (alist-ref 'mag rec) 4.5)))))
+                        (lambda (rec) (< (alist-ref 'mag rec) 4.5))))
+                (min-r 1)
+                (max-r 8)
+                (min-mag -1.5)
+                (max-mag 4.5))
+            (define (star-radius mag)
+              (let* ((a (/ (- min-r max-r) (- max-mag min-mag)))
+                     (b (- max-r (* a min-mag))))
+                (inexact->exact (round (+ b (* a mag))))))
             (for-each
              (lambda (star)
-               (apply image-draw-pixel
-                      image black
-                      (apply point-to-canvas
-                             (azimuthal-equidistant
-                              (list (alist-ref 'ra star)
-                                    (alist-ref 'dec star))
-                              center/celestial))))
+               (match-let
+                   (((x y)
+                     (apply point-to-canvas
+                            (azimuthal-equidistant
+                             (list (alist-ref 'ra star)
+                                   (alist-ref 'dec star))
+                             center/celestial))))
+                 (let* ((mag (alist-ref 'mag star))
+                        (r (star-radius mag)))
+                   (image-fill-ellipse image black x y r r))))
              stars))
           (image-save image image-filename))))))
 
