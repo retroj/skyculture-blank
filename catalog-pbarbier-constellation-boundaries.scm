@@ -26,7 +26,8 @@
 ;; ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 (module catalog-pbarbier-constellation-boundaries
-    *
+    (read-boundary
+     read-constellation-lines)
 
 (import chicken scheme)
 

@@ -26,7 +26,8 @@
 ;; ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 (module catalog-hyg-database
-    *
+    (hyg-get-records/constellation
+     hyg-get-records/designator)
 
 (import chicken scheme)
 
