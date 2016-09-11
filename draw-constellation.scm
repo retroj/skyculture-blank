@@ -214,7 +214,8 @@ exec csi -s $0 "$@"
                   stars))))
            constellations
            boundaries/cartesian2)
-          (image-save image image-filename))))))
+          (image-save image image-filename)
+          (fmt #t "wrote " image-filename nl))))))
 
 (define (main options)
   (for-each
