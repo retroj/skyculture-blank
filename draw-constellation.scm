@@ -131,18 +131,36 @@ exec csi -s $0 "$@"
 ;; Main
 ;;
 
-(define (main options)
-  (let* ((constellation (alist-ref 'constellation options))
-         (boundary/celestial (read-boundary constellation))
-         (boundary/cartesian
-          (map (match-lambda ((ra dec) (celestial->cartesian ra dec 1.0)))
-               boundary/celestial))
-         (center/cartesian (cartesian-center boundary/cartesian))
-         (center/celestial (take (apply cartesian->celestial center/cartesian) 2))
-         (boundary/cartesian2 (map (lambda (point)
-                                     (azimuthal-equidistant point center/celestial))
-                                   boundary/celestial))
-         (projection-bbox (cartesian2-bounding-box boundary/cartesian2)))
+(define (constellations-to-draw constellation-spec)
+  (cond
+   ((symbol? constellation-spec) (list constellation-spec))
+   ((pair? constellation-spec)
+    (or (alist-ref 'draw (cdr constellation-spec))
+        (list (first constellation-spec))))
+   (else
+    (fmt #t "bad constellation spec: " constellation-spec nl)
+    (exit 1))))
+
+(define (boundaries/celestial-center boundaries/celestial)
+  (let ((cartesian-points
+         (map (match-lambda ((ra dec) (celestial->cartesian ra dec 1.0)))
+              (apply append boundaries/celestial))))
+    (take
+     (apply cartesian->celestial (cartesian-center cartesian-points))
+     2)))
+
+(define (draw-map constellation-spec options)
+  (let* ((constellations (constellations-to-draw constellation-spec))
+         (boundaries/celestial (map read-boundary constellations))
+         (center/celestial (boundaries/celestial-center boundaries/celestial))
+         (boundaries/cartesian2
+          (map (lambda (boundary/celestial)
+                 (map (lambda (point)
+                        (azimuthal-equidistant point center/celestial))
+                      boundary/celestial))
+               boundaries/celestial))
+         (projection-bbox (cartesian2-bounding-box
+                           (apply append boundaries/cartesian2))))
     (match-let (((xmin ymin xmax ymax) projection-bbox))
       (let* ((scale (alist-ref 'scale options))
              (pwidth (- xmax xmin))
@@ -152,45 +170,57 @@ exec csi -s $0 "$@"
         (let* ((width (inexact->exact (+ 1 (round (* pwidth scale)))))
                (height (inexact->exact (+ 1 (round (* pheight scale)))))
                (image (image-create width height))
-               (image-filename (string-append (->string constellation) ".png"))
+               (image-filename (string-append (->string (first constellations)) ".png"))
                (black (color/rgba 0 0 0 255))
-               (points (close-loop boundary/cartesian2)))
-          (define (point-to-canvas x y)
-            (list (inexact->exact (round (* (- x xmin) scale)))
-                  (inexact->exact (round (* (- y ymin) scale)))))
-          (let loop ((prev (apply point-to-canvas (first points)))
-                     (points (cdr points)))
-            (unless (null? points)
-              (match-let (((x1 y1) prev)
-                          ((x2 y2) (apply point-to-canvas (first points))))
-                (image-draw-line image black x1 y1 x2 y2)
-                (loop (list x2 y2) (cdr points)))))
-          ;; drawing stars
-          (let ((stars (hyg-get-records/constellation
-                        constellation
-                        (lambda (rec) (< (alist-ref 'mag rec) 4.5))))
-                (min-r 1)
-                (max-r 8)
-                (min-mag -1.5)
-                (max-mag 4.5))
-            (define (star-radius mag)
-              (let* ((a (/ (- min-r max-r) (- max-mag min-mag)))
-                     (b (- max-r (* a min-mag))))
-                (inexact->exact (round (+ b (* a mag))))))
-            (for-each
-             (lambda (star)
-               (match-let
-                   (((x y)
-                     (apply point-to-canvas
-                            (azimuthal-equidistant
-                             (list (alist-ref 'ra star)
-                                   (alist-ref 'dec star))
-                             center/celestial))))
-                 (let* ((mag (alist-ref 'mag star))
-                        (r (star-radius mag)))
-                   (image-fill-ellipse image black x y r r))))
-             stars))
+               (white (color/rgba 255 255 255 255)))
+          (image-fill-rectangle image white 0 0 width height)
+          (for-each
+           (lambda (constellation boundary/cartesian2)
+             (let ((points (close-loop boundary/cartesian2)))
+               (define (point-to-canvas x y)
+                 (list (inexact->exact (round (* (- x xmin) scale)))
+                       (inexact->exact (round (* (- y ymin) scale)))))
+               (let loop ((prev (apply point-to-canvas (first points)))
+                          (points (cdr points)))
+                 (unless (null? points)
+                   (match-let (((x1 y1) prev)
+                               ((x2 y2) (apply point-to-canvas (first points))))
+                     (image-draw-line image black x1 y1 x2 y2)
+                     (loop (list x2 y2) (cdr points)))))
+               ;; drawing stars
+               (let ((stars (hyg-get-records/constellation
+                             constellation
+                             (lambda (rec) (< (alist-ref 'mag rec) 4.5))))
+                     (min-r 1)
+                     (max-r 8)
+                     (min-mag -1.5)
+                     (max-mag 4.5))
+                 (define (star-radius mag)
+                   (let* ((a (/ (- min-r max-r) (- max-mag min-mag)))
+                          (b (- max-r (* a min-mag))))
+                     (inexact->exact (round (+ b (* a mag))))))
+                 (for-each
+                  (lambda (star)
+                    (match-let
+                        (((x y)
+                          (apply point-to-canvas
+                                 (azimuthal-equidistant
+                                  (list (alist-ref 'ra star)
+                                        (alist-ref 'dec star))
+                                  center/celestial))))
+                      (let* ((mag (alist-ref 'mag star))
+                             (r (star-radius mag)))
+                        (image-fill-ellipse image black x y r r))))
+                  stars))))
+           constellations
+           boundaries/cartesian2)
           (image-save image image-filename))))))
+
+(define (main options)
+  (for-each
+   (lambda (constellation-spec)
+     (draw-map constellation-spec options))
+   (alist-ref 'constellations options)))
 
 (define (usage-header)
   (fmt #f "usage: draw-constellation [options] <const>" nl nl
@@ -214,22 +244,15 @@ exec csi -s $0 "$@"
 
 (call-with-values
     (lambda () (args:parse (command-line-arguments) opts))
-  (match-lambda*
-    ((options ())
-     (fmt #t (usage-header) nl (args:usage opts) nl)
-     (exit 1))
-    ((options (constellation))
-     (let* ((constellation (string->symbol (string-downcase constellation)))
-            (options-file (alist-ref 'options-file options))
-            (options (append
-                      `((constellation . ,constellation))
+  (lambda (options . constellations)
+    (let ((options-file (alist-ref 'options-file options)))
+      (let ((options (append
                       options
                       (if options-file
-                          (append options
-                                  (with-input-from-file options-file read))
+                          (with-input-from-file options-file read)
                           '())
                       '((scale . 1000))))) ;; default options
-       (main options)))
-    ((options (constellation . rest))
-     (fmt #t (usage-header) nl (args:usage opts) nl)
-     (exit 1))))
+        ;; constellations given on the command line tell which ones to draw,
+        ;; but the draw options should still be looked up from within the
+        ;; options file.
+        (main options)))))
