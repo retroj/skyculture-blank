@@ -36,7 +36,8 @@ exec csi -s $0 "$@"
      (only data-structures alist-ref)
      fmt
      imlib2
-     matchable)
+     matchable
+     typeclass)
 
 (load "catalog-pbarbier-constellation-boundaries")
 (import catalog-pbarbier-constellation-boundaries)
@@ -149,6 +150,27 @@ exec csi -s $0 "$@"
      (apply cartesian->celestial (cartesian-center cartesian-points))
      2)))
 
+(define-class <plotter>
+  plotter-new ;; width height
+  plotter-fill-rectangle ;; p color x y width height
+  plotter-fill-circle ;; p color x y r
+  plotter-line ;; p color x1 y1 x2 y2
+  plotter-write ;; p path
+  plotter-color ;; r g b a
+  )
+
+(define plotter-imlib2
+  (make-<plotter>
+   image-create ;; plotter-new
+   image-fill-rectangle ;; plotter-fill-rectangle
+   (lambda (p color x y r)
+     (image-fill-ellipse p color x y r r)) ;; plotter-fill-circle
+   image-draw-line ;; plotter-line
+   image-save ;; plotter-write
+   color/rgba ;; plotter-color
+   ))
+
+
 (define (draw-map constellation-spec options)
   (let* ((constellations (constellations-to-draw constellation-spec))
          (boundaries/celestial (map read-boundary constellations))
@@ -167,13 +189,14 @@ exec csi -s $0 "$@"
              (pheight (- ymax ymin))
              (aspect (/ pwidth pheight)))
         ;; drawing
+        (with-instance ((<plotter> plotter-imlib2))
         (let* ((width (inexact->exact (+ 1 (round (* pwidth scale)))))
                (height (inexact->exact (+ 1 (round (* pheight scale)))))
-               (image (image-create width height))
+               (image (plotter-new width height))
                (image-filename (string-append (->string (first constellations)) ".png"))
-               (black (color/rgba 0 0 0 255))
-               (white (color/rgba 255 255 255 255)))
-          (image-fill-rectangle image white 0 0 width height)
+               (black (plotter-color 0 0 0 255))
+               (white (plotter-color 255 255 255 255)))
+          (plotter-fill-rectangle image white 0 0 width height)
           (for-each
            (lambda (constellation boundary/cartesian2)
              (let ((points (close-loop boundary/cartesian2)))
@@ -185,7 +208,7 @@ exec csi -s $0 "$@"
                  (unless (null? points)
                    (match-let (((x1 y1) prev)
                                ((x2 y2) (apply point-to-canvas (first points))))
-                     (image-draw-line image black x1 y1 x2 y2)
+                     (plotter-line image black x1 y1 x2 y2)
                      (loop (list x2 y2) (cdr points)))))
                ;; drawing stars
                (let ((stars (hyg-get-records/constellation
@@ -210,12 +233,12 @@ exec csi -s $0 "$@"
                                   center/celestial))))
                       (let* ((mag (alist-ref 'mag star))
                              (r (star-radius mag)))
-                        (image-fill-ellipse image black x y r r))))
+                        (plotter-fill-circle image black x y r))))
                   stars))))
            constellations
            boundaries/cartesian2)
-          (image-save image image-filename)
-          (fmt #t "wrote " image-filename nl))))))
+          (plotter-write image image-filename)
+          (fmt #t "wrote " image-filename nl)))))))
 
 (define (main options)
   (for-each
