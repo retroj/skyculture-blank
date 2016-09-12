@@ -127,6 +127,27 @@ exec csi -s $0 "$@"
                             (* (sin center-dec) (cos dec) (cos (- ra center-ra)))))))
             (list (- x) (- y)))))))
 
+;; Stereographic
+;;
+
+(define (stereographic point center)
+  (match-let (((ra dec) point)
+              ((center-ra center-dec) center))
+    (let* ((lam ra)
+           (phi dec)
+           (lam0 center-ra)
+           (phi1 center-dec)
+           (R 1.0)
+           (dlam (- lam lam0))
+           (k (/ (* R 2.0)
+                 (+ 1
+                    (* (sin phi1) (sin phi))
+                    (* (cos phi1) (cos phi) (cos dlam)))))
+           (x (* k (cos phi) (sin dlam)))
+           (y (* k (- (* (cos phi1) (sin phi))
+                      (* (sin phi1) (cos phi) (cos dlam))))))
+      (list (- x) (- y)))))
+
 
 ;;
 ;; Main
