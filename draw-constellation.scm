@@ -45,6 +45,9 @@ exec csi -s $0 "$@"
 (load "catalog-hyg-database")
 (import catalog-hyg-database)
 
+(load "projection")
+(import projection)
+
 
 ;;
 ;; Utilities
@@ -104,49 +107,6 @@ exec csi -s $0 "$@"
 
 (define (close-loop coords)
   (append coords (list (first coords))))
-
-
-;;
-;; Projections
-;;
-
-;; Azimuthal Equidistant
-;;
-
-(define (azimuthal-equidistant point center)
-  (match-let (((ra dec) point)
-              ((center-ra center-dec) center))
-    (let* ((cosc (+ (* (sin center-dec) (sin dec))
-                    (* (cos center-dec) (cos dec) (cos (- ra center-ra)))))
-           (c (acos cosc)))
-      (if (< (abs (- c tau/2)) 0.0001)
-          (list #f #f) ;; error or NaN
-          (let* ((k (if (zero? c) 1 (/ c (sin c))))
-                 (x (* k (cos dec) (sin (- ra center-ra))))
-                 (y (* k (- (* (cos center-dec) (sin dec))
-                            (* (sin center-dec) (cos dec) (cos (- ra center-ra)))))))
-            (list (- x) (- y)))))))
-
-;; Stereographic
-;;
-
-(define (stereographic point center)
-  (match-let (((ra dec) point)
-              ((center-ra center-dec) center))
-    (let* ((lam ra)
-           (phi dec)
-           (lam0 center-ra)
-           (phi1 center-dec)
-           (R 1.0)
-           (dlam (- lam lam0))
-           (k (/ (* R 2.0)
-                 (+ 1
-                    (* (sin phi1) (sin phi))
-                    (* (cos phi1) (cos phi) (cos dlam)))))
-           (x (* k (cos phi) (sin dlam)))
-           (y (* k (- (* (cos phi1) (sin phi))
-                      (* (sin phi1) (cos phi) (cos dlam))))))
-      (list (- x) (- y)))))
 
 
 ;;
@@ -294,9 +254,14 @@ exec csi -s $0 "$@"
         (fmt #t "wrote " image-filename nl)))))
 
 (define (main options)
-  (let ((output (alist-ref 'output options)))
+  (let* ((output (alist-ref 'output options))
+         (projection-name (alist-ref 'projection options))
+         (projection (alist-ref projection-name (projections))))
     (unless output
       (fmt #t "No output set." nl)
+      (exit 1))
+    (unless projection
+      (fmt #t "Unknown projection: " projection-name nl)
       (exit 1))
 
     ;; (output-skyculture (cdr output))
@@ -304,7 +269,8 @@ exec csi -s $0 "$@"
     (for-each
      (lambda (chart-spec)
        (draw-chart chart-spec plotter-imlib2
-                   azimuthal-equidistant options))
+                   (projection-fn projection)
+                   options))
      (alist-ref 'charts options))))
 
 (define (usage-header)
@@ -321,6 +287,11 @@ exec csi -s $0 "$@"
    (args:make-option
        (o options-file) #:required
        "load additional options alist from file")
+
+   (args:make-option
+       (projection) #:required
+       "azimuthal-equidistant, stereographic"
+     (set! arg (string->symbol arg)))
 
    (args:make-option
        (scale) #:required
@@ -349,4 +320,5 @@ exec csi -s $0 "$@"
            `((charts . ,charts))
            options
            options-file-options
-           '((scale . 1000)))))) ;; default options
+           '((projection . azimuthal-equidistant) ;; default options
+             (scale . 1000))))))
