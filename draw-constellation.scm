@@ -290,7 +290,7 @@ exec csi -s $0 "$@"
 
    (args:make-option
        (projection) #:required
-       "azimuthal-equidistant, stereographic"
+       "azimuthal-equidistant, gnomonic, stereographic"
      (set! arg (string->symbol arg)))
 
    (args:make-option
