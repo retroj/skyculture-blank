@@ -31,7 +31,7 @@ exec csi -s $0 "$@"
 
 (import chicken scheme)
 
-(use (srfi 1 13)
+(use (srfi 1 13 99)
      args
      (only data-structures alist-ref)
      fmt
@@ -158,6 +158,7 @@ exec csi -s $0 "$@"
      (apply cartesian->celestial (cartesian-center cartesian-points))
      2)))
 
+
 (define-class <plotter>
   plotter-new ;; width height
   plotter-fill-rectangle ;; p color x y width height
@@ -167,86 +168,109 @@ exec csi -s $0 "$@"
   plotter-color ;; r g b a
   )
 
+(define-record-type :plotter
+  (%make-plotter interface canvas projection point-to-canvas plotter-star)
+  plotter?
+  (interface plotter-interface)
+  (canvas plotter-canvas)
+  (projection plotter-projection)
+  (point-to-canvas plotter-point-to-canvas)
+  (plotter-star plotter-plotter-star))
+
+(define (make-plotter interface projection fit-to-objects scale
+                      draw-fit-to-objects)
+  (with-instance ((<plotter> interface))
+    (let* ((center/celestial (boundaries/celestial-center fit-to-objects))
+           (boundaries/cartesian2
+            (map (lambda (boundary/celestial)
+                   (map (lambda (point) (projection point center/celestial))
+                        boundary/celestial))
+                 fit-to-objects))
+           (projection-bbox (cartesian2-bounding-box
+                             (apply append boundaries/cartesian2))))
+      (match-let (((xmin ymin xmax ymax) projection-bbox))
+        (let* ((pwidth (- xmax xmin))
+               (pheight (- ymax ymin))
+               (width (inexact->exact (+ 1 (round (* pwidth scale)))))
+               (height (inexact->exact (+ 1 (round (* pheight scale))))))
+          (define (point-to-canvas x y)
+            (list (inexact->exact (round (* (- x xmin) scale)))
+                  (inexact->exact (round (* (- y ymin) scale)))))
+          (let* ((canvas (plotter-new width height))
+                 (black (plotter-color 0 0 0 255))
+                 (p (%make-plotter
+                     interface
+                     canvas
+                     projection
+                     point-to-canvas
+                     (lambda (ra dec mag) ;; plotter-star
+                       (let ((min-r 1)
+                             (max-r 8)
+                             (min-mag -1.5)
+                             (max-mag 4.5))
+                         (define (star-radius mag)
+                           (let* ((a (/ (- min-r max-r) (- max-mag min-mag)))
+                                  (b (- max-r (* a min-mag))))
+                             (inexact->exact (round (+ b (* a mag))))))
+                         (match-let
+                             (((x y)
+                               (apply point-to-canvas
+                                      (projection (list ra dec) center/celestial))))
+                           (let* ((r (star-radius mag)))
+                             (plotter-fill-circle canvas black x y r))))))))
+            (when draw-fit-to-objects
+              (for-each
+               (lambda (boundary/cartesian2)
+                 (let ((points (close-loop boundary/cartesian2)))
+                   (let loop ((prev (apply point-to-canvas (first points)))
+                              (points (cdr points)))
+                     (unless (null? points)
+                       (match-let (((x1 y1) prev)
+                                   ((x2 y2) (apply point-to-canvas (first points))))
+                         (plotter-line (plotter-canvas p) black x1 y1 x2 y2)
+                         (loop (list x2 y2) (cdr points)))))))
+               boundaries/cartesian2))
+            p))))))
+
 (define plotter-imlib2
   (make-<plotter>
-   image-create ;; plotter-new
-   image-fill-rectangle ;; plotter-fill-rectangle
-   (lambda (p color x y r)
-     (image-fill-ellipse p color x y r r)) ;; plotter-fill-circle
+   image-create            ;; plotter-new
+   image-fill-rectangle    ;; plotter-fill-rectangle
+   (lambda (p color x y r) ;; plotter-fill-circle
+     (image-fill-ellipse p color x y r r))
    image-draw-line ;; plotter-line
-   image-save ;; plotter-write
-   color/rgba ;; plotter-color
+   image-save      ;; plotter-write
+   color/rgba      ;; plotter-color
    ))
 
 
 (define (draw-chart chart-spec plotter projection options)
   (let* ((chart-name (chart-name chart-spec))
          (constellations (constellations-to-draw chart-spec))
+         ;;XXX: read-boundary comes from a catalog
          (boundaries/celestial (map read-boundary constellations))
-         (center/celestial (boundaries/celestial-center boundaries/celestial))
-         (boundaries/cartesian2
-          (map (lambda (boundary/celestial)
-                 (map (lambda (point) (projection point center/celestial))
-                      boundary/celestial))
-               boundaries/celestial))
-         (projection-bbox (cartesian2-bounding-box
-                           (apply append boundaries/cartesian2))))
-    (match-let (((xmin ymin xmax ymax) projection-bbox))
-      (let* ((scale (alist-ref 'scale options))
-             (pwidth (- xmax xmin))
-             (pheight (- ymax ymin))
-             (aspect (/ pwidth pheight)))
-        ;; drawing
-        (with-instance ((<plotter> plotter))
-          (let* ((width (inexact->exact (+ 1 (round (* pwidth scale)))))
-                 (height (inexact->exact (+ 1 (round (* pheight scale)))))
-                 (image (plotter-new width height))
-                 (image-filename (string-append (->string chart-name) ".png"))
-                 (black (plotter-color 0 0 0 255))
-                 (white (plotter-color 255 255 255 255)))
-            (plotter-fill-rectangle image white 0 0 width height)
-            (for-each
-             (lambda (constellation boundary/cartesian2)
-               (let ((points (close-loop boundary/cartesian2)))
-                 (define (point-to-canvas x y)
-                   (list (inexact->exact (round (* (- x xmin) scale)))
-                         (inexact->exact (round (* (- y ymin) scale)))))
-                 (let loop ((prev (apply point-to-canvas (first points)))
-                            (points (cdr points)))
-                   (unless (null? points)
-                     (match-let (((x1 y1) prev)
-                                 ((x2 y2) (apply point-to-canvas (first points))))
-                       (plotter-line image black x1 y1 x2 y2)
-                       (loop (list x2 y2) (cdr points)))))
-                 ;; drawing stars
-                 (let ((stars (hyg-get-records/constellation
-                               constellation
-                               (lambda (rec) (< (alist-ref 'mag rec) 4.5))))
-                       (min-r 1)
-                       (max-r 8)
-                       (min-mag -1.5)
-                       (max-mag 4.5))
-                   (define (star-radius mag)
-                     (let* ((a (/ (- min-r max-r) (- max-mag min-mag)))
-                            (b (- max-r (* a min-mag))))
-                       (inexact->exact (round (+ b (* a mag))))))
-                   (for-each
-                    (lambda (star)
-                      (match-let
-                          (((x y)
-                            (apply point-to-canvas
-                                   (projection
-                                    (list (alist-ref 'ra star)
-                                          (alist-ref 'dec star))
-                                    center/celestial))))
-                        (let* ((mag (alist-ref 'mag star))
-                               (r (star-radius mag)))
-                          (plotter-fill-circle image black x y r))))
-                    stars))))
-             constellations
-             boundaries/cartesian2)
-            (plotter-write image image-filename)
-            (fmt #t "wrote " image-filename nl)))))))
+         (the-plotter (make-plotter plotter projection boundaries/celestial
+                                    (alist-ref 'scale options)
+                                    #t)))
+    ;; drawing stars
+    (with-instance ((<plotter> (plotter-interface the-plotter)))
+      (let* ((image-filename (string-append (->string chart-name) ".png"))
+             (black (plotter-color 0 0 0 255)))
+        (for-each
+         (lambda (constellation)
+           (let ((stars (hyg-get-records/constellation
+                         constellation
+                         (lambda (rec) (< (alist-ref 'mag rec) 4.5)))))
+             (for-each
+              (lambda (star)
+                ((plotter-plotter-star the-plotter)
+                 (alist-ref 'ra star)
+                 (alist-ref 'dec star)
+                 (alist-ref 'mag star)))
+              stars)))
+         constellations)
+        (plotter-write (plotter-canvas the-plotter) image-filename)
+        (fmt #t "wrote " image-filename nl)))))
 
 (define (main options)
   (let ((output (alist-ref 'output options)))
