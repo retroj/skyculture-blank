@@ -179,15 +179,14 @@ exec csi -s $0 "$@"
    ))
 
 
-(define (draw-chart chart-spec options)
+(define (draw-chart chart-spec plotter projection options)
   (let* ((chart-name (chart-name chart-spec))
          (constellations (constellations-to-draw chart-spec))
          (boundaries/celestial (map read-boundary constellations))
          (center/celestial (boundaries/celestial-center boundaries/celestial))
          (boundaries/cartesian2
           (map (lambda (boundary/celestial)
-                 (map (lambda (point)
-                        (azimuthal-equidistant point center/celestial))
+                 (map (lambda (point) (projection point center/celestial))
                       boundary/celestial))
                boundaries/celestial))
          (projection-bbox (cartesian2-bounding-box
@@ -198,7 +197,7 @@ exec csi -s $0 "$@"
              (pheight (- ymax ymin))
              (aspect (/ pwidth pheight)))
         ;; drawing
-        (with-instance ((<plotter> plotter-imlib2))
+        (with-instance ((<plotter> plotter))
           (let* ((width (inexact->exact (+ 1 (round (* pwidth scale)))))
                  (height (inexact->exact (+ 1 (round (* pheight scale)))))
                  (image (plotter-new width height))
@@ -236,7 +235,7 @@ exec csi -s $0 "$@"
                       (match-let
                           (((x y)
                             (apply point-to-canvas
-                                   (azimuthal-equidistant
+                                   (projection
                                     (list (alist-ref 'ra star)
                                           (alist-ref 'dec star))
                                     center/celestial))))
@@ -259,7 +258,8 @@ exec csi -s $0 "$@"
 
     (for-each
      (lambda (chart-spec)
-       (draw-chart chart-spec options))
+       (draw-chart chart-spec plotter-imlib2
+                   azimuthal-equidistant options))
      (alist-ref 'charts options))))
 
 (define (usage-header)
