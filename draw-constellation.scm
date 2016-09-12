@@ -132,6 +132,14 @@ exec csi -s $0 "$@"
 ;; Main
 ;;
 
+(define (chart-name chart-spec)
+  (cond
+   ((symbol? chart-spec) chart-spec)
+   ((pair? chart-spec) (first chart-spec))
+   (else
+    (fmt #t "bad chart spec: " chart-spec nl)
+    (exit 1))))
+
 (define (constellations-to-draw constellation-spec)
   (cond
    ((symbol? constellation-spec) (list constellation-spec))
@@ -171,8 +179,9 @@ exec csi -s $0 "$@"
    ))
 
 
-(define (draw-map constellation-spec options)
-  (let* ((constellations (constellations-to-draw constellation-spec))
+(define (draw-map chart-spec options)
+  (let* ((chart-name (chart-name chart-spec))
+         (constellations (constellations-to-draw chart-spec))
          (boundaries/celestial (map read-boundary constellations))
          (center/celestial (boundaries/celestial-center boundaries/celestial))
          (boundaries/cartesian2
@@ -193,7 +202,7 @@ exec csi -s $0 "$@"
           (let* ((width (inexact->exact (+ 1 (round (* pwidth scale)))))
                  (height (inexact->exact (+ 1 (round (* pheight scale)))))
                  (image (plotter-new width height))
-                 (image-filename (string-append (->string (first constellations)) ".png"))
+                 (image-filename (string-append (->string chart-name) ".png"))
                  (black (plotter-color 0 0 0 255))
                  (white (plotter-color 255 255 255 255)))
             (plotter-fill-rectangle image white 0 0 width height)
@@ -241,10 +250,17 @@ exec csi -s $0 "$@"
             (fmt #t "wrote " image-filename nl)))))))
 
 (define (main options)
-  (for-each
-   (lambda (constellation-spec)
-     (draw-map constellation-spec options))
-   (alist-ref 'constellations options)))
+  (let ((output (alist-ref 'output options)))
+    (unless output
+      (fmt #t "No output set." nl)
+      (exit 1))
+
+    ;; (output-skyculture (cdr output))
+
+    (for-each
+     (lambda (chart-spec)
+       (draw-map chart-spec options))
+     (alist-ref 'charts options))))
 
 (define (usage-header)
   (fmt #f "usage: draw-constellation [options] [const] ..." nl nl
@@ -266,28 +282,26 @@ exec csi -s $0 "$@"
        "image height and width are radius * ARG, (0 < radius < 1)"
      (set! arg (string->number arg)))))
 
-(receive (options constellations)
+(receive (options charts)
     (args:parse (command-line-arguments) opts)
   (let* ((options-file (alist-ref 'options-file options))
          (options-file-options
           (if options-file
               (with-input-from-file options-file read)
               '()))
-         (options-constellations
-          (alist-ref 'constellations options-file-options eq? '()))
-         (constellations
-          (if (null? constellations)
-              options-constellations
-              (map (lambda (constellation)
-                     (or (assq constellation options-constellations)
-                         constellation))
-                   (map (o string->symbol string-downcase) constellations)))))
-    (when (null? constellations)
-      (fmt #t "No constellations given in options file or command-line."
+         (options-charts
+          (alist-ref 'charts options-file-options eq? '()))
+         (charts
+          (if (null? charts)
+              options-charts
+              (map (lambda (chart) (or (assq chart options-charts) chart))
+                   (map (o string->symbol string-downcase) charts)))))
+    (when (null? charts)
+      (fmt #t "No charts requested."
            nl nl (usage-header) nl (args:usage opts) nl)
       (exit 1))
     (main (append
-           `((constellations . ,constellations))
+           `((charts . ,charts))
            options
            options-file-options
            '((scale . 1000)))))) ;; default options

@@ -2,7 +2,7 @@
 ((scale . 1000)
  (output skyculture
          (path "blank"))
- (constellations
+ (charts
   (and)
   (ant)
   (aps)
@@ -19,7 +19,7 @@
   (cma)
   (cmi)
   (cap)
-  (car
+  (argonavis
    (draw . (car pup vel)))
   (cas)
   (cen)
@@ -62,7 +62,7 @@
   (mus)
   (nor)
   (oct)
-  (oph
+  (ophiuchus-serpens
    (draw . (oph ser1 ser2)))
   (ori)
   (pav)
