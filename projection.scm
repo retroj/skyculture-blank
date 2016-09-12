@@ -31,6 +31,7 @@
      projection-fn
 
      azimuthal-equidistant
+     gnomonic
      stereographic)
 
 (import chicken scheme)
