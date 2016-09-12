@@ -168,18 +168,18 @@ exec csi -s $0 "$@"
   plotter-color ;; r g b a
   )
 
-(define-record-type :plotter
-  (%make-plotter interface canvas projection point-to-canvas plotter-star)
-  plotter?
-  (interface plotter-interface)
-  (canvas plotter-canvas)
-  (projection plotter-projection)
-  (point-to-canvas plotter-point-to-canvas)
-  (plotter-star plotter-plotter-star))
+(define-record-type :chart
+  (%make-chart plotter canvas projection point-to-canvas draw-star)
+  chart?
+  (plotter chart-plotter)
+  (canvas chart-canvas)
+  (projection chart-projection)
+  (point-to-canvas chart-point-to-canvas)
+  (draw-star chart-draw-star))
 
-(define (make-plotter interface projection fit-to-objects scale
-                      draw-fit-to-objects)
-  (with-instance ((<plotter> interface))
+(define (make-chart plotter projection fit-to-objects scale
+                    draw-fit-to-objects)
+  (with-instance ((<plotter> plotter))
     (let* ((center/celestial (boundaries/celestial-center fit-to-objects))
            (boundaries/cartesian2
             (map (lambda (boundary/celestial)
@@ -198,12 +198,12 @@ exec csi -s $0 "$@"
                   (inexact->exact (round (* (- y ymin) scale)))))
           (let* ((canvas (plotter-new width height))
                  (black (plotter-color 0 0 0 255))
-                 (p (%make-plotter
-                     interface
+                 (p (%make-chart
+                     plotter
                      canvas
                      projection
                      point-to-canvas
-                     (lambda (ra dec mag) ;; plotter-star
+                     (lambda (ra dec mag) ;; draw-star
                        (let ((min-r 1)
                              (max-r 8)
                              (min-mag -1.5)
@@ -227,7 +227,7 @@ exec csi -s $0 "$@"
                      (unless (null? points)
                        (match-let (((x1 y1) prev)
                                    ((x2 y2) (apply point-to-canvas (first points))))
-                         (plotter-line (plotter-canvas p) black x1 y1 x2 y2)
+                         (plotter-line canvas black x1 y1 x2 y2)
                          (loop (list x2 y2) (cdr points)))))))
                boundaries/cartesian2))
             p))))))
@@ -249,11 +249,11 @@ exec csi -s $0 "$@"
          (constellations (constellations-to-draw chart-spec))
          ;;XXX: read-boundary comes from a catalog
          (boundaries/celestial (map read-boundary constellations))
-         (the-plotter (make-plotter plotter projection boundaries/celestial
-                                    (alist-ref 'scale options)
-                                    #t)))
+         (chart (make-chart plotter projection boundaries/celestial
+                            (alist-ref 'scale options)
+                            #t)))
     ;; drawing stars
-    (with-instance ((<plotter> (plotter-interface the-plotter)))
+    (with-instance ((<plotter> plotter))
       (let* ((image-filename (string-append (->string chart-name) ".png"))
              (black (plotter-color 0 0 0 255)))
         (for-each
@@ -263,13 +263,13 @@ exec csi -s $0 "$@"
                          (lambda (rec) (< (alist-ref 'mag rec) 4.5)))))
              (for-each
               (lambda (star)
-                ((plotter-plotter-star the-plotter)
+                ((chart-draw-star chart)
                  (alist-ref 'ra star)
                  (alist-ref 'dec star)
                  (alist-ref 'mag star)))
               stars)))
          constellations)
-        (plotter-write (plotter-canvas the-plotter) image-filename)
+        (plotter-write (chart-canvas chart) image-filename)
         (fmt #t "wrote " image-filename nl)))))
 
 (define (main options)
