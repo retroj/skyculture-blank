@@ -179,7 +179,7 @@ exec csi -s $0 "$@"
    ))
 
 
-(define (draw-map chart-spec options)
+(define (draw-chart chart-spec options)
   (let* ((chart-name (chart-name chart-spec))
          (constellations (constellations-to-draw chart-spec))
          (boundaries/celestial (map read-boundary constellations))
@@ -259,7 +259,7 @@ exec csi -s $0 "$@"
 
     (for-each
      (lambda (chart-spec)
-       (draw-map chart-spec options))
+       (draw-chart chart-spec options))
      (alist-ref 'charts options))))
 
 (define (usage-header)
