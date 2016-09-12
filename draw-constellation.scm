@@ -190,55 +190,55 @@ exec csi -s $0 "$@"
              (aspect (/ pwidth pheight)))
         ;; drawing
         (with-instance ((<plotter> plotter-imlib2))
-        (let* ((width (inexact->exact (+ 1 (round (* pwidth scale)))))
-               (height (inexact->exact (+ 1 (round (* pheight scale)))))
-               (image (plotter-new width height))
-               (image-filename (string-append (->string (first constellations)) ".png"))
-               (black (plotter-color 0 0 0 255))
-               (white (plotter-color 255 255 255 255)))
-          (plotter-fill-rectangle image white 0 0 width height)
-          (for-each
-           (lambda (constellation boundary/cartesian2)
-             (let ((points (close-loop boundary/cartesian2)))
-               (define (point-to-canvas x y)
-                 (list (inexact->exact (round (* (- x xmin) scale)))
-                       (inexact->exact (round (* (- y ymin) scale)))))
-               (let loop ((prev (apply point-to-canvas (first points)))
-                          (points (cdr points)))
-                 (unless (null? points)
-                   (match-let (((x1 y1) prev)
-                               ((x2 y2) (apply point-to-canvas (first points))))
-                     (plotter-line image black x1 y1 x2 y2)
-                     (loop (list x2 y2) (cdr points)))))
-               ;; drawing stars
-               (let ((stars (hyg-get-records/constellation
-                             constellation
-                             (lambda (rec) (< (alist-ref 'mag rec) 4.5))))
-                     (min-r 1)
-                     (max-r 8)
-                     (min-mag -1.5)
-                     (max-mag 4.5))
-                 (define (star-radius mag)
-                   (let* ((a (/ (- min-r max-r) (- max-mag min-mag)))
-                          (b (- max-r (* a min-mag))))
-                     (inexact->exact (round (+ b (* a mag))))))
-                 (for-each
-                  (lambda (star)
-                    (match-let
-                        (((x y)
-                          (apply point-to-canvas
-                                 (azimuthal-equidistant
-                                  (list (alist-ref 'ra star)
-                                        (alist-ref 'dec star))
-                                  center/celestial))))
-                      (let* ((mag (alist-ref 'mag star))
-                             (r (star-radius mag)))
-                        (plotter-fill-circle image black x y r))))
-                  stars))))
-           constellations
-           boundaries/cartesian2)
-          (plotter-write image image-filename)
-          (fmt #t "wrote " image-filename nl)))))))
+          (let* ((width (inexact->exact (+ 1 (round (* pwidth scale)))))
+                 (height (inexact->exact (+ 1 (round (* pheight scale)))))
+                 (image (plotter-new width height))
+                 (image-filename (string-append (->string (first constellations)) ".png"))
+                 (black (plotter-color 0 0 0 255))
+                 (white (plotter-color 255 255 255 255)))
+            (plotter-fill-rectangle image white 0 0 width height)
+            (for-each
+             (lambda (constellation boundary/cartesian2)
+               (let ((points (close-loop boundary/cartesian2)))
+                 (define (point-to-canvas x y)
+                   (list (inexact->exact (round (* (- x xmin) scale)))
+                         (inexact->exact (round (* (- y ymin) scale)))))
+                 (let loop ((prev (apply point-to-canvas (first points)))
+                            (points (cdr points)))
+                   (unless (null? points)
+                     (match-let (((x1 y1) prev)
+                                 ((x2 y2) (apply point-to-canvas (first points))))
+                       (plotter-line image black x1 y1 x2 y2)
+                       (loop (list x2 y2) (cdr points)))))
+                 ;; drawing stars
+                 (let ((stars (hyg-get-records/constellation
+                               constellation
+                               (lambda (rec) (< (alist-ref 'mag rec) 4.5))))
+                       (min-r 1)
+                       (max-r 8)
+                       (min-mag -1.5)
+                       (max-mag 4.5))
+                   (define (star-radius mag)
+                     (let* ((a (/ (- min-r max-r) (- max-mag min-mag)))
+                            (b (- max-r (* a min-mag))))
+                       (inexact->exact (round (+ b (* a mag))))))
+                   (for-each
+                    (lambda (star)
+                      (match-let
+                          (((x y)
+                            (apply point-to-canvas
+                                   (azimuthal-equidistant
+                                    (list (alist-ref 'ra star)
+                                          (alist-ref 'dec star))
+                                    center/celestial))))
+                        (let* ((mag (alist-ref 'mag star))
+                               (r (star-radius mag)))
+                          (plotter-fill-circle image black x y r))))
+                    stars))))
+             constellations
+             boundaries/cartesian2)
+            (plotter-write image image-filename)
+            (fmt #t "wrote " image-filename nl)))))))
 
 (define (main options)
   (for-each
