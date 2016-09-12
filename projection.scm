@@ -78,6 +78,28 @@
 (define-projection 'azimuthal-equidistant azimuthal-equidistant)
 
 
+;; Gnomonic
+;;
+
+(define (gnomonic point center)
+  (match-let (((ra dec) point)
+              ((center-ra center-dec) center))
+    (let* ((lam ra)
+           (phi dec)
+           (lam0 center-ra)
+           (phi1 center-dec)
+           (dlam (- lam lam0))
+           (c (acos (+ (* (sin phi1) (sin phi))
+                       (* (cos phi1) (cos phi) (cos dlam)))))
+           (x (/ (* (cos phi) (sin dlam)) (cos c)))
+           (y (/ (- (* (cos phi1) (sin phi))
+                    (* (sin phi1) (cos phi) (cos dlam)))
+                 (cos c))))
+      (list (- x) (- y)))))
+
+(define-projection 'gnomonic gnomonic)
+
+
 ;; Stereographic
 ;;
 
