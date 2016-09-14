@@ -62,19 +62,17 @@
 ;; Azimuthal Equidistant
 ;;
 
-(define (azimuthal-equidistant point center)
-  (match-let (((ra dec) point)
-              ((center-ra center-dec) center))
-    (let* ((cosc (+ (* (sin center-dec) (sin dec))
-                    (* (cos center-dec) (cos dec) (cos (- ra center-ra)))))
-           (c (acos cosc)))
-      (if (< (abs (- c tau/2)) 0.0001)
-          (list #f #f) ;; error or NaN
-          (let* ((k (if (zero? c) 1 (/ c (sin c))))
-                 (x (* k (cos dec) (sin (- ra center-ra))))
-                 (y (* k (- (* (cos center-dec) (sin dec))
-                            (* (sin center-dec) (cos dec) (cos (- ra center-ra)))))))
-            (list (- x) (- y)))))))
+(define (azimuthal-equidistant ra dec center-ra center-dec)
+  (let* ((cosc (+ (* (sin center-dec) (sin dec))
+                  (* (cos center-dec) (cos dec) (cos (- ra center-ra)))))
+         (c (acos cosc)))
+    (if (< (abs (- c tau/2)) 0.0001)
+        (list #f #f) ;; error or NaN
+        (let* ((k (if (zero? c) 1 (/ c (sin c))))
+               (x (* k (cos dec) (sin (- ra center-ra))))
+               (y (* k (- (* (cos center-dec) (sin dec))
+                          (* (sin center-dec) (cos dec) (cos (- ra center-ra)))))))
+          (list x y)))))
 
 (define-projection 'azimuthal-equidistant azimuthal-equidistant)
 
@@ -82,21 +80,19 @@
 ;; Gnomonic
 ;;
 
-(define (gnomonic point center)
-  (match-let (((ra dec) point)
-              ((center-ra center-dec) center))
-    (let* ((lam ra)
-           (phi dec)
-           (lam0 center-ra)
-           (phi1 center-dec)
-           (dlam (- lam lam0))
-           (c (acos (+ (* (sin phi1) (sin phi))
-                       (* (cos phi1) (cos phi) (cos dlam)))))
-           (x (/ (* (cos phi) (sin dlam)) (cos c)))
-           (y (/ (- (* (cos phi1) (sin phi))
-                    (* (sin phi1) (cos phi) (cos dlam)))
-                 (cos c))))
-      (list (- x) (- y)))))
+(define (gnomonic ra dec center-ra center-dec)
+  (let* ((lam ra)
+         (phi dec)
+         (lam0 center-ra)
+         (phi1 center-dec)
+         (dlam (- lam lam0))
+         (c (acos (+ (* (sin phi1) (sin phi))
+                     (* (cos phi1) (cos phi) (cos dlam)))))
+         (x (/ (* (cos phi) (sin dlam)) (cos c)))
+         (y (/ (- (* (cos phi1) (sin phi))
+                  (* (sin phi1) (cos phi) (cos dlam)))
+               (cos c))))
+    (list x y)))
 
 (define-projection 'gnomonic gnomonic)
 
@@ -104,23 +100,21 @@
 ;; Stereographic
 ;;
 
-(define (stereographic point center)
-  (match-let (((ra dec) point)
-              ((center-ra center-dec) center))
-    (let* ((lam ra)
-           (phi dec)
-           (lam0 center-ra)
-           (phi1 center-dec)
-           (R 1.0)
-           (dlam (- lam lam0))
-           (k (/ (* R 2.0)
-                 (+ 1
-                    (* (sin phi1) (sin phi))
-                    (* (cos phi1) (cos phi) (cos dlam)))))
-           (x (* k (cos phi) (sin dlam)))
-           (y (* k (- (* (cos phi1) (sin phi))
-                      (* (sin phi1) (cos phi) (cos dlam))))))
-      (list (- x) (- y)))))
+(define (stereographic ra dec center-ra center-dec)
+  (let* ((lam ra)
+         (phi dec)
+         (lam0 center-ra)
+         (phi1 center-dec)
+         (R 1.0)
+         (dlam (- lam lam0))
+         (k (/ (* R 2.0)
+               (+ 1
+                  (* (sin phi1) (sin phi))
+                  (* (cos phi1) (cos phi) (cos dlam)))))
+         (x (* k (cos phi) (sin dlam)))
+         (y (* k (- (* (cos phi1) (sin phi))
+                    (* (sin phi1) (cos phi) (cos dlam))))))
+    (list x y)))
 
 (define-projection 'stereographic stereographic)
 

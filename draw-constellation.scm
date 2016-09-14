@@ -45,6 +45,9 @@ exec csi -s $0 "$@"
 (load "catalog-hyg-database")
 (import catalog-hyg-database)
 
+(load "output-skyculture")
+(import output-skyculture)
+
 (load "projection")
 (import projection)
 
@@ -150,68 +153,109 @@ exec csi -s $0 "$@"
   )
 
 (define-record-type :chart
-  (%make-chart plotter canvas projection point-to-canvas draw-star)
+  (%make-chart plotter canvas projection draw-star cache)
   chart?
   (plotter chart-plotter)
   (canvas chart-canvas)
   (projection chart-projection)
-  (point-to-canvas chart-point-to-canvas)
-  (draw-star chart-draw-star))
+  (draw-star chart-draw-star)
+  (cache chart-cache chart-cache-set!))
 
-(define (make-chart plotter projection fit-to-objects scale
-                    draw-fit-to-objects)
+(define (chart-cache-command chart command data)
+  (chart-cache-set!
+   chart
+   (cons (cons* command data)
+         (chart-cache chart))))
+
+(define (chart-cache-remove-command chart command)
+  (chart-cache-set!
+   chart
+   (filter
+    (lambda (entry) (not (eq? command (first entry))))
+    (chart-cache chart))))
+
+(define (chart-draw chart command projection coords)
+  (with-instance ((<plotter> (chart-plotter chart)))
+    (let ((canvas (chart-canvas chart))
+          (black (plotter-color 0 0 0 255)))
+      (for-each
+       (lambda (points)
+         (let loop ((prev (apply projection (first points)))
+                    (points (cdr points)))
+           (unless (null? points)
+             (match-let (((x1 y1) prev)
+                         ((x2 y2) (apply projection (first points))))
+               (plotter-line canvas black x1 y1 x2 y2)
+               (loop (list x2 y2) (cdr points))))))
+       coords))))
+
+(define (chart-draw-cached chart command #!optional remove-from-cache?)
+  (let* ((cache (chart-cache chart))
+         (command-cache (alist-ref command cache)))
+    (cond
+     (command-cache
+      (when remove-from-cache?
+        (chart-cache-remove-command chart command))
+      (chart-draw chart command list command-cache))
+     (else
+      #t
+      #;(chart-draw chart command)))))
+
+(define draw-command-coords
+  (match-lambda
+    ((cmd ('@ . attrs) . coords)
+     coords)
+    ((cmd . coords)
+     coords)))
+
+(define (make-chart plotter projection scale fit fit-option)
   (with-instance ((<plotter> plotter))
-    (let* ((center/celestial (boundaries/celestial-center fit-to-objects))
-           (boundaries/cartesian2
+    (let* ((boundaries/celestial (map draw-command-coords fit))
+           (center/celestial (boundaries/celestial-center boundaries/celestial))
+           (boundaries/projection
             (map (lambda (boundary/celestial)
-                   (map (lambda (point) (projection point center/celestial))
+                   (map (match-lambda ((ra dec) (apply projection ra dec center/celestial)))
                         boundary/celestial))
-                 fit-to-objects))
-           (projection-bbox (cartesian2-bounding-box
-                             (apply append boundaries/cartesian2))))
-      (match-let (((xmin ymin xmax ymax) projection-bbox))
-        (let* ((pwidth (- xmax xmin))
-               (pheight (- ymax ymin))
-               (width (inexact->exact (+ 1 (round (* pwidth scale)))))
-               (height (inexact->exact (+ 1 (round (* pheight scale))))))
-          (define (point-to-canvas x y)
-            (list (inexact->exact (round (* (- x xmin) scale)))
-                  (inexact->exact (round (* (- y ymin) scale)))))
-          (let* ((canvas (plotter-new width height))
-                 (black (plotter-color 0 0 0 255))
-                 (p (%make-chart
-                     plotter
-                     canvas
-                     projection
-                     point-to-canvas
-                     (lambda (ra dec mag) ;; draw-star
-                       (let ((min-r 1)
-                             (max-r 8)
-                             (min-mag -1.5)
-                             (max-mag 4.5))
-                         (define (star-radius mag)
-                           (let* ((a (/ (- min-r max-r) (- max-mag min-mag)))
-                                  (b (- max-r (* a min-mag))))
-                             (inexact->exact (round (+ b (* a mag))))))
-                         (match-let
-                             (((x y)
-                               (apply point-to-canvas
-                                      (projection (list ra dec) center/celestial))))
-                           (let* ((r (star-radius mag)))
-                             (plotter-fill-circle canvas black x y r))))))))
-            (when draw-fit-to-objects
-              (for-each
-               (lambda (boundary/cartesian2)
-                 (let ((points (close-loop boundary/cartesian2)))
-                   (let loop ((prev (apply point-to-canvas (first points)))
-                              (points (cdr points)))
-                     (unless (null? points)
-                       (match-let (((x1 y1) prev)
-                                   ((x2 y2) (apply point-to-canvas (first points))))
-                         (plotter-line canvas black x1 y1 x2 y2)
-                         (loop (list x2 y2) (cdr points)))))))
-               boundaries/cartesian2))
-            p))))))
+                 boundaries/celestial)))
+      (match-let (((xmin ymin xmax ymax)
+                   (cartesian2-bounding-box
+                    (apply append boundaries/projection))))
+        (let* ((width (inexact->exact (+ 1 (round (* (- xmax xmin) scale)))))
+               (height (inexact->exact (+ 1 (round (* (- ymax ymin) scale)))))
+               (canvas (plotter-new width height))
+               (black (plotter-color 0 0 0 255)))
+          (define (celestial->projection ra dec)
+            (apply projection ra dec center/celestial))
+          (define (projection->plot x y)
+            (list (inexact->exact (round (* (- (- x xmax)) scale)))
+                  (inexact->exact (round (* (- (- y ymax)) scale)))))
+          (define (draw-star ra dec mag)
+            (let ((min-r 1)
+                  (max-r 8)
+                  (min-mag -1.5)
+                  (max-mag 4.5))
+              (define (star-radius mag)
+                (let* ((a (/ (- min-r max-r) (- max-mag min-mag)))
+                       (b (- max-r (* a min-mag))))
+                  (inexact->exact (round (+ b (* a mag))))))
+              (match-let
+                  (((x y) (apply projection->plot (celestial->projection ra dec))))
+                (plotter-fill-circle canvas black x y (star-radius mag)))))
+          (let ((chart (%make-chart plotter canvas projection
+                                    draw-star (list))))
+            (case fit-option
+              ((cache)
+               (chart-cache-command
+                chart fit
+                (map (lambda (boundary/projection)
+                       (map (lambda (point)
+                              (apply projection->plot point))
+                            boundary/projection))
+                     boundaries/projection)))
+              ((draw)
+               (chart-draw chart fit projection->plot boundaries/projection))
+              (else #t))
+            chart))))))
 
 (define plotter-imlib2
   (make-<plotter>
@@ -230,20 +274,25 @@ exec csi -s $0 "$@"
          (constellations (constellations-to-draw chart-spec))
          ;;XXX: read-boundary comes from a catalog
          (boundaries/celestial (map read-boundary constellations))
-         (chart (make-chart plotter projection boundaries/celestial
-                            (alist-ref 'scale options)
-                            #t)))
+         (fit-to-command (map (lambda (b) (cons* 'path '(@ (closed #t)) b))
+                              boundaries/celestial))
+         (chart (make-chart plotter projection (alist-ref 'scale options)
+                            fit-to-command 'cache)))
+    (chart-draw-cached chart fit-to-command #t)
     ;; drawing stars
     (with-instance ((<plotter> plotter))
       (let* ((image-filename (string-append (->string chart-name) ".png"))
              (black (plotter-color 0 0 0 255)))
-        (for-each
+        #;(for-each
          (lambda (constellation)
            (let ((stars (hyg-get-records/constellation
                          constellation
                          (lambda (rec) (< (alist-ref 'mag rec) 4.5)))))
              (for-each
               (lambda (star)
+                ;; output-skyculture would need to wrap chart-draw-star,
+                ;; in a way that it could obtain the plot coordinates of
+                ;; the star
                 ((chart-draw-star chart)
                  (alist-ref 'ra star)
                  (alist-ref 'dec star)
@@ -260,18 +309,19 @@ exec csi -s $0 "$@"
     (unless output
       (fmt #t "No output set." nl)
       (exit 1))
-    (unless projection
-      (fmt #t "Unknown projection: " projection-name nl)
-      (exit 1))
+    (let ((options (append options output-skyculture-options)))
+      (unless projection
+        (fmt #t "Unknown projection: " projection-name nl)
+        (exit 1))
 
-    ;; (output-skyculture (cdr output))
+      ;; (output-skyculture (cdr output))
 
-    (for-each
-     (lambda (chart-spec)
-       (draw-chart chart-spec plotter-imlib2
-                   (projection-fn projection)
-                   options))
-     (alist-ref 'charts options))))
+      (for-each
+       (lambda (chart-spec)
+         (draw-chart chart-spec plotter-imlib2
+                     (projection-fn projection)
+                     options))
+       (alist-ref 'charts options)))))
 
 (define (usage-header)
   (fmt #f "usage: draw-constellation [options] [const] ..." nl nl
@@ -295,6 +345,7 @@ exec csi -s $0 "$@"
 
    (args:make-option
        (scale) #:required
+       ;;XXX: this docstring is incorrect
        "image height and width are radius * ARG, (0 < radius < 1)"
      (set! arg (string->number arg)))))
 
