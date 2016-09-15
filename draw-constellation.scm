@@ -197,9 +197,9 @@ exec csi -s $0 "$@"
 (define (draw-command-replace-coords command new-coords)
   (match command
     ((cmd ('@ . attrs) . coords)
-     `(,cmd (@ . ,attrs) ,@new-coords))
+     `(,cmd (@ . ,attrs) . ,new-coords))
     ((cmd . coords)
-     (apply list cmd new-coords))))
+     `(,cmd . ,new-coords))))
 
 (define (make-chart plotter projection scale fit)
   (with-instance ((<plotter> plotter))
