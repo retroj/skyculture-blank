@@ -287,25 +287,20 @@ exec csi -s $0 "$@"
           (fmt #t "wrote " image-filename nl))))))
 
 (define (main options)
-  (let* ((output (alist-ref 'output options))
-         (projection-name (alist-ref 'projection options))
+  (let* ((projection-name (alist-ref 'projection options))
          (projection (alist-ref projection-name (projections))))
-    (unless output
-      (fmt #t "No output set." nl)
+    (unless projection
+      (fmt #t "Unknown projection: " projection-name nl)
       (exit 1))
-    (let ((options (append options output-skyculture-options)))
-      (unless projection
-        (fmt #t "Unknown projection: " projection-name nl)
-        (exit 1))
 
-      ;; (output-skyculture (cdr output))
+    ;; (output-skyculture (cdr output))
 
-      (for-each
-       (lambda (chart-spec)
-         (draw-chart chart-spec plotter-imlib2
-                     (projection-fn projection)
-                     options))
-       (alist-ref 'charts options)))))
+    (for-each
+     (lambda (chart-spec)
+       (draw-chart chart-spec plotter-imlib2
+                   (projection-fn projection)
+                   options))
+     (alist-ref 'charts options))))
 
 (define (usage-header)
   (fmt #f "usage: draw-constellation [options] [const] ..." nl nl
@@ -340,20 +335,26 @@ exec csi -s $0 "$@"
           (if options-file
               (with-input-from-file options-file read)
               '()))
+         (options (append options options-file-options))
+         (output (alist-ref 'output options))
+         (output-options output-skyculture-options)
+         (options
+          (append options
+                  output-options
+                  '((projection . azimuthal-equidistant) ;; default options
+                    (scale . 1000))))
          (options-charts
-          (alist-ref 'charts options-file-options eq? '()))
+          (alist-ref 'charts options eq? '()))
          (charts
           (if (null? charts)
               options-charts
               (map (lambda (chart) (or (assq chart options-charts) chart))
                    (map (o string->symbol string-downcase) charts)))))
+    (unless output
+      (fmt #t "No output set." nl)
+      (exit 1))
     (when (null? charts)
       (fmt #t "No charts requested."
            nl nl (usage-header) nl (args:usage opts) nl)
       (exit 1))
-    (main (append
-           `((charts . ,charts))
-           options
-           options-file-options
-           '((projection . azimuthal-equidistant) ;; default options
-             (scale . 1000))))))
+    (main (append `((charts . ,charts)) options))))
