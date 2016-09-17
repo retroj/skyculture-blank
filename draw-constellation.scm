@@ -272,9 +272,26 @@ exec csi -s $0 "$@"
                (black (plotter-color 0 0 0 255)))
           (for-each
            (lambda (constellation)
-             (let ((stars (hyg-get-records/constellation
-                           constellation
-                           (lambda (rec) (< (alist-ref 'mag rec) 4.5)))))
+             (let* ((maxmag 4.5)
+                    (got 0)
+                    (stars (take-while
+                            (lambda (star)
+                              (let ((mag (alist-ref 'mag star)))
+                                (cond
+                                 ((< mag maxmag)
+                                  (set! got (add1 got))
+                                  #t)
+                                 ((< got 10)
+                                  (set! got (add1 got))
+                                  (set! maxmag (+ maxmag 0.1))
+                                  #t)
+                                 (else #f))))
+                            (sort
+                             (hyg-get-records/constellation
+                              constellation)
+                             (lambda (a b)
+                               (< (alist-ref 'mag a) (alist-ref 'mag b)))))))
+
                (for-each
                 (lambda (star)
                   ((chart-draw-star chart)
