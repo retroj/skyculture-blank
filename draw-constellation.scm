@@ -272,7 +272,7 @@ exec csi -s $0 "$@"
                (black (plotter-color 0 0 0 255)))
           (for-each
            (lambda (constellation)
-             (let* ((maxmag 4.5)
+             (let* ((maxmag 4.0)
                     (got 0)
                     (stars (take-while
                             (lambda (star)
