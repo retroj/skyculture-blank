@@ -232,7 +232,7 @@ exec csi -s $0 "$@"
               (define (star-radius mag)
                 (let* ((a (/ (- min-r max-r) (- max-mag min-mag)))
                        (b (- max-r (* a min-mag))))
-                  (inexact->exact (round (+ b (* a mag))))))
+                  (max 1 (inexact->exact (round (+ b (* a mag)))))))
               (match-let
                   (((x y) (celestial->plot ra dec)))
                 (plotter-fill-circle canvas black x y (star-radius mag)))))
