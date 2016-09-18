@@ -81,12 +81,17 @@
               result)))))))))
 
 (define (read-boundary constellation)
-  (let ((boundary (%read-boundary constellation)))
-    (cond
-     ((null? boundary)
-      (fmt #t "Unknown constellation: " constellation nl)
-      (exit 1))
-     (else boundary))))
+  (map
+   (lambda (constellation)
+     (let ((boundary (%read-boundary constellation)))
+       (cond
+        ((null? boundary)
+         (fmt #t "Unknown constellation: " constellation nl)
+         (exit 1))
+        (else boundary))))
+   (if (eq? 'ser constellation)
+       (list 'ser1 'ser2)
+       (list constellation))))
 
 (define (read-constellation-lines constellations)
   (define (parse-verts-line line)

@@ -113,26 +113,40 @@ exec csi -s $0 "$@"
 
 
 ;;
-;; Main
+;; Chart Spec
 ;;
 
-(define (chart-name chart-spec)
-  (cond
-   ((symbol? chart-spec) chart-spec)
-   ((pair? chart-spec) (first chart-spec))
-   (else
-    (fmt #t "bad chart spec: " chart-spec nl)
-    (exit 1))))
+(define (parse-catalog-name spec)
+  (let ((spec (->string spec)))
+    (map string->symbol (string-split spec ":"))))
 
-(define (constellations-to-draw constellation-spec)
+(define-record-type :chart-spec
+  (%make-chart-spec name draw)
+  chart-spec?
+  (name chart-spec-name)
+  (draw chart-spec-draw))
+
+(define (make-chart-spec spec)
   (cond
-   ((symbol? constellation-spec) (list constellation-spec))
-   ((pair? constellation-spec)
-    (or (alist-ref 'draw (cdr constellation-spec))
-        (list (first constellation-spec))))
-   (else
-    (fmt #t "bad constellation spec: " constellation-spec nl)
-    (exit 1))))
+   ((and (symbol? spec) (string-any #\: (->string spec)))
+    (let* ((split (string-split (->string spec) ":"))
+           (object-name (string->symbol (second split))))
+      (%make-chart-spec object-name (list (parse-catalog-name spec)))))
+   ((pair? spec)
+    (let* ((fst (first spec))
+           (props (cdr spec))
+           (draw (alist-ref 'draw props)))
+      (cond
+       (draw (%make-chart-spec fst (map parse-catalog-name draw)))
+       (else
+        (let* ((split (string-split (->string fst) ":"))
+               (object-name (string->symbol (second split))))
+          (%make-chart-spec object-name (list (parse-catalog-name fst))))))))))
+
+
+;;
+;; Main
+;;
 
 (define (boundaries/celestial-center boundaries/celestial)
   (let ((cartesian-points
@@ -257,10 +271,11 @@ exec csi -s $0 "$@"
 
 
 (define (draw-chart chart-spec plotter projection options)
-  (let* ((chart-name (chart-name chart-spec))
-         (constellations (constellations-to-draw chart-spec))
+  (let* ((chart-name (chart-spec-name chart-spec))
+         ;;XXX: draw may contain other things than constellations
+         (constellations (map second (chart-spec-draw chart-spec)))
          ;;XXX: read-boundary comes from a catalog
-         (boundaries/celestial (map read-boundary constellations)))
+         (boundaries/celestial (append-map read-boundary constellations)))
     (let-values (((chart draw-constellation-boundary)
                   (make-chart plotter projection (alist-ref 'scale options)
                               (map (lambda (b) (cons* 'path '(@ (closed . #t)) b))
@@ -314,9 +329,8 @@ exec csi -s $0 "$@"
 
     (for-each
      (lambda (chart-spec)
-       (draw-chart chart-spec plotter-imlib2
-                   (projection-fn projection)
-                   options))
+       (draw-chart (make-chart-spec chart-spec) plotter-imlib2
+                   (projection-fn projection) options))
      (alist-ref 'charts options))))
 
 (define (usage-header)
