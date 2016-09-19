@@ -38,6 +38,8 @@
      matchable
      ports)
 
+(import catalog)
+
 (define boundaries-filename "data/constellations-pbarbier/bound_in_20.txt")
 
 (define lines-filename "data/constellations-pbarbier/lines_in_20.txt")
@@ -147,5 +149,8 @@
                             (cons (list (celestial-units->radians ra dec))
                                   result)))))
                (else (loop (read-line) current-segment result)))))))))))
+
+(define-catalog 'pbarbier-constellation-boundaries
+  '(constellation) read-boundary)
 
 )

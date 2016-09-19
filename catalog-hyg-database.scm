@@ -42,6 +42,8 @@
      regex
      utils)  
 
+(import catalog)
+
 (define tau (* 4.0 (asin 1.0)))
 
 (define (degrees->radians d)
@@ -204,5 +206,7 @@
            (or (alist-ref field hyg-database-field-types)
                identity))
          hyg-database-fields)))
+
+(define-catalog 'hyg-database '(star) hyg-get-records/constellation)
 
 )

@@ -39,6 +39,9 @@ exec csi -s $0 "$@"
      matchable
      typeclass)
 
+(load "catalog.scm")
+(import catalog)
+
 (load "catalog-pbarbier-constellation-boundaries")
 (import catalog-pbarbier-constellation-boundaries)
 
@@ -272,10 +275,28 @@ exec csi -s $0 "$@"
 
 (define (draw-chart chart-spec plotter projection options)
   (let* ((chart-name (chart-spec-name chart-spec))
-         ;;XXX: draw may contain other things than constellations
-         (constellations (map second (chart-spec-draw chart-spec)))
-         ;;XXX: read-boundary comes from a catalog
-         (boundaries/celestial (append-map read-boundary constellations)))
+         (draw-objects (chart-spec-draw chart-spec))
+         ;; at the moment, the draw is only constellations, and that is
+         ;; what we want to fit to.  however, we need a way to specify
+         ;; other objects in the draw, which will not be fit to.
+         ;;
+         ;; we're drawing a certain amount of stars from each
+         ;; constellation shown in the chart.  we'd like to be able to
+         ;; specify this with a single config option, not have to add the
+         ;; same stars specification to every chart.
+         ;;
+         ;; the 'draw' spec doesn't really capture what we want to do.
+         ;; we're not just drawing these constellations, we're setting
+         ;; them as the subject of the chart, and then basing several draw
+         ;; commands on them.
+         ;;
+         (boundaries/celestial (append-map
+                                (match-lambda
+                                  ((catalog object)
+                                   ((catalog-query (catalog-find catalog))
+                                    object)))
+                                draw-objects))
+         (constellations (map second draw-objects)))
     (let-values (((chart draw-constellation-boundary)
                   (make-chart plotter projection (alist-ref 'scale options)
                               (map (lambda (b) (cons* 'path '(@ (closed . #t)) b))
