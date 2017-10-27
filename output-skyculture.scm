@@ -31,7 +31,11 @@
 (import chicken scheme)
 
 (use (srfi 1 13)
-     )
+     (only data-structures alist-ref)
+     fmt)
+
+(import output-chart)
+(import projection)
 
 (define output-skyculture-options
   '((charts
@@ -126,6 +130,15 @@
      (constellation:vul))))
 
 (define (output-skyculture options)
-  #f)
+  (let* ((projection-name (alist-ref 'projection options))
+         (projection (alist-ref projection-name (projections))))
+    (unless projection
+      (fmt #t "Unknown projection: " projection-name nl)
+      (exit 1))
+    (for-each
+     (lambda (chart-spec)
+       (draw-chart (make-chart-spec chart-spec) plotter-imlib2
+                   (projection-fn projection) options))
+     (alist-ref 'charts options))))
 
 )
