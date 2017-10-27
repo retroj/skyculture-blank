@@ -1,4 +1,4 @@
 ;; -*- scheme -*-
 ((scale . 1000)
  (output skyculture
-         (path "blank")))
+         (path . "blank")))

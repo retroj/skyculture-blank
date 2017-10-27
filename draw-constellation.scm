@@ -34,7 +34,8 @@ exec csi -s $0 "$@"
 (use (srfi 1 13 99)
      args
      (only data-structures alist-ref)
-     fmt)
+     fmt
+     matchable)
 
 (load "catalog.scm")
 (load "catalog-pbarbier-constellation-boundaries")
@@ -47,7 +48,18 @@ exec csi -s $0 "$@"
 
 
 (define (draw-charts options)
-  (output-skyculture options))
+  (let* ((output-spec (alist-ref 'output options)))
+    (match output-spec
+      ((output-scheme . output-options)
+       (case output-scheme
+         ((skyculture)
+          (output-skyculture output-options options))
+         (else
+          (fmt #t "Unknown output-scheme " output-scheme "." nl)
+          (exit 1))))
+      (_
+       (fmt #t "No output scheme given." nl)
+       (exit 1)))))
 
 
 ;;

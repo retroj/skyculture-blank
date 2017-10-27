@@ -38,11 +38,10 @@
      typeclass)
 
 (import catalog)
-(import catalog-hyg-database)
 
-;;
-;; Utilities
-;;
+;;;
+;;; Utilities
+;;;
 
 (define tau (* 4.0 (asin 1.0)))
 (define tau/2 (* 2.0 (asin 1.0)))
@@ -100,9 +99,9 @@
   (append coords (list (first coords))))
 
 
-;;
-;; Chart Spec
-;;
+;;;
+;;; Chart Spec
+;;;
 
 (define (parse-catalog-name spec)
   (let ((spec (->string spec)))
@@ -112,7 +111,7 @@
   (%make-chart-spec name draw)
   chart-spec?
   (name chart-spec-name)
-  (draw chart-spec-draw))
+  (draw chart-spec-draw chart-spec-draw-set!))
 
 (define (make-chart-spec spec)
   (cond
@@ -132,9 +131,9 @@
           (%make-chart-spec object-name (list (parse-catalog-name fst))))))))))
 
 
-;;
-;; Draw Charts
-;;
+;;;
+;;; Draw Charts
+;;;
 
 (define (boundaries/celestial-center boundaries/celestial)
   (let ((cartesian-points
@@ -263,81 +262,47 @@
 (define (draw-chart chart-spec plotter projection options)
   (let* ((chart-name (chart-spec-name chart-spec))
          (draw-objects (chart-spec-draw chart-spec))
-         ;; at the moment, the draw is only constellations, and that is
-         ;; what we want to fit to.  however, we need a way to specify
-         ;; other objects in the draw, which will not be fit to.
-         ;;
-         ;; we're drawing a certain amount of stars from each
-         ;; constellation shown in the chart.  we'd like to be able to
-         ;; specify this with a single config option, not have to add the
-         ;; same stars specification to every chart.
-         ;;
-         ;; the 'draw' spec doesn't really capture what we want to do.
-         ;; we're not just drawing these constellations, we're setting
-         ;; them as the subject of the chart, and then basing several draw
-         ;; commands on them.
-         ;;
+         (fit-objects (filter-map
+                       (lambda (ob) (if (eq? 'fit (car ob))
+                                        (cdr ob)
+                                        #f))
+                       draw-objects))
          (boundaries/celestial (append-map
                                 (match-lambda
                                   ((catalog object)
                                    ((catalog-query (catalog-find catalog))
                                     object)))
-                                draw-objects))
-         (constellations (map second draw-objects)))
+                                fit-objects)))
     (let-values (((chart draw-constellation-boundary)
+                  ;; fitting
                   (make-chart plotter projection (alist-ref 'scale options)
                               (map (lambda (b) (cons* 'path '(@ (closed . #t)) b))
                                    boundaries/celestial))))
+      ;;XXX: how about instead of returning a closure, we cache the data
+      ;;     that needs to be cached, associated with its draw command, so
+      ;;     that we can then do them in any order?
+
+      ;; make-chart returned a closure to draw the items that were fit to,
+      ;; so that they don't need to be recomputed.
+      ;;
       (draw-constellation-boundary)
-      ;; drawing stars
+
+      ;; drawing remaining objects
+      ;;
       (with-instance ((<plotter> plotter))
         (let* ((image-filename (string-append (->string chart-name) ".png"))
                (black (plotter-color 0 0 0 255)))
           (for-each
-           (lambda (constellation)
-             (let* ((maxmag 4.0)
-                    (got 0)
-                    (stars (take-while
-                            (lambda (star)
-                              (let ((mag (alist-ref 'mag star)))
-                                (cond
-                                 ((< mag maxmag)
-                                  (set! got (add1 got))
-                                  #t)
-                                 ((< got 10)
-                                  (set! got (add1 got))
-                                  (set! maxmag (+ maxmag 0.1))
-                                  #t)
-                                 (else #f))))
-                            (sort
-                             (hyg-get-records/constellation
-                              constellation)
-                             (lambda (a b)
-                               (< (alist-ref 'mag a) (alist-ref 'mag b)))))))
-
-               #;(chart-draw
-               chart
-               (map
-               (lambda (star)
-               (match-let
-               (((x y) (chart-projection
-               (alist-ref 'ra star)
-               (alist-ref 'dec star))))
-               `(star (,x ,y ,(alist-ref 'mag star)))))
-               stars)
-               (cut split-at <> 2)) ;; mag is in the second value...?
-               ;; no, this works well enough for the
-               ;; optimized drawing case, but not
-               ;; for plot-fitting
-
-               (for-each
-                (lambda (star)
-                  ((chart-draw-star chart)
-                   (alist-ref 'ra star)
-                   (alist-ref 'dec star)
-                   (alist-ref 'mag star)))
-                stars)))
-           constellations)
+           (lambda (draw-object)
+             ;; ignore 'fit objects, so in the current version that means
+             ;; only drawing 'star objects.
+             (when (eq? 'star (car draw-object))
+               (let ((star (cdr draw-object)))
+                 ((chart-draw-star chart)
+                 (alist-ref 'ra star)
+                 (alist-ref 'dec star)
+                 (alist-ref 'mag star)))))
+           draw-objects)
           (plotter-write (chart-canvas chart) image-filename)
           (fmt #t "wrote " image-filename nl))))))
 

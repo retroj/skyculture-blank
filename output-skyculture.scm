@@ -31,11 +31,14 @@
 (import chicken scheme)
 
 (use (srfi 1 13)
-     (only data-structures alist-ref)
-     fmt)
+     data-structures
+     filepath
+     fmt
+     posix)
 
 (import output-chart)
 (import projection)
+(import catalog-hyg-database)
 
 (define output-skyculture-options
   '((charts
@@ -129,16 +132,69 @@
      (constellation:vol)
      (constellation:vul))))
 
-(define (output-skyculture options)
+(define (output-skyculture output-options options)
   (let* ((projection-name (alist-ref 'projection options))
-         (projection (alist-ref projection-name (projections))))
+         (projection (alist-ref projection-name (projections)))
+         (output-path (alist-ref 'path output-options)))
     (unless projection
       (fmt #t "Unknown projection: " projection-name nl)
       (exit 1))
-    (for-each
-     (lambda (chart-spec)
-       (draw-chart (make-chart-spec chart-spec) plotter-imlib2
-                   (projection-fn projection) options))
-     (alist-ref 'charts options))))
+    (unless output-path
+      (fmt #t "No output path specified" nl)
+      (exit 1))
+    (cond
+     ((file-exists? output-path)
+      (cond
+       ((directory output-path)
+        ;;XXX: we should require a command line option to overwrite
+        (fmt #t "Warning: writing to existing directory: " output-path nl))
+       (else
+        (fmt #t output-path " exists and is not a skyculture directory." nl)
+        (exit 1))))
+     (else
+      (create-directory output-path #t)))
+
+    (let* ((constellationsart.fab-path (filepath:join-path
+                                        (list output-path "constellationsart.fab")))
+           (constellationsart.fab-port (open-output-file constellationsart.fab-path)))
+      (for-each
+       (lambda (chart-spec)
+         ;;XXX: we need to tell draw-chart what filename to write to
+
+         ;;XXX: we need to use the projection to get the tie points for constellationsart.fab
+
+         (let* ((chart-spec (make-chart-spec chart-spec))
+                (draw-objects (chart-spec-draw chart-spec))
+                (constellations (map second draw-objects))
+                (stars (append-map
+                        (lambda (constellation)
+                          (let* ((maxmag 4.0)
+                                 (got 0))
+                            (take-while
+                             (lambda (star)
+                               (let ((mag (alist-ref 'mag star)))
+                                 (cond
+                                  ((< mag maxmag)
+                                   (set! got (add1 got))
+                                   #t)
+                                  ((< got 10)
+                                   (set! got (add1 got))
+                                   (set! maxmag (+ maxmag 0.1))
+                                   #t)
+                                  (else #f))))
+                             (sort
+                              (hyg-get-records/constellation constellation)
+                              (lambda (a b)
+                                (< (alist-ref 'mag a) (alist-ref 'mag b)))))))
+                        constellations)))
+           (chart-spec-draw-set! chart-spec
+                                 (map (lambda (ob) (cons 'fit ob))
+                                      (chart-spec-draw chart-spec)))
+           (chart-spec-draw-set! chart-spec (append (chart-spec-draw chart-spec)
+                                                    (map (lambda (star) (cons 'star star))
+                                                         stars)))
+           (draw-chart chart-spec plotter-imlib2
+                       (projection-fn projection) options)))
+       (alist-ref 'charts options)))))
 
 )
