@@ -339,7 +339,7 @@ exec csi -s $0 "$@"
           (plotter-write (chart-canvas chart) image-filename)
           (fmt #t "wrote " image-filename nl))))))
 
-(define (main options)
+(define (draw-charts options)
   (let* ((projection-name (alist-ref 'projection options))
          (projection (alist-ref projection-name (projections))))
     (unless projection
@@ -354,59 +354,62 @@ exec csi -s $0 "$@"
                    (projection-fn projection) options))
      (alist-ref 'charts options))))
 
-(define (usage-header)
-  (fmt #f "usage: draw-constellation [options] [const] ..." nl nl
-       " const: IAU abbreviation of a constellation (ori)" nl))
+(define (main command-line-arguments)
+  (define (usage-header)
+    (fmt #f "usage: draw-constellation [options] [const] ..." nl nl
+         " const: IAU abbreviation of a constellation (ori)" nl))
 
-(define opts
-  (list
-   (args:make-option
-       (h help) #:none "help"
-     (fmt #t (usage-header) nl (args:usage opts) nl)
-     (exit 1))
+  (define opts
+    (list
+     (args:make-option
+         (h help) #:none "help"
+       (fmt #t (usage-header) nl (args:usage opts) nl)
+       (exit 1))
 
-   (args:make-option
-       (o options-file) #:required
-       "load additional options alist from file")
+     (args:make-option
+         (o options-file) #:required
+         "load additional options alist from file")
 
-   (args:make-option
-       (projection) #:required
-       "azimuthal-equidistant, gnomonic, stereographic"
-     (set! arg (string->symbol arg)))
+     (args:make-option
+         (projection) #:required
+         "azimuthal-equidistant, gnomonic, stereographic"
+       (set! arg (string->symbol arg)))
 
-   (args:make-option
-       (scale) #:required
-       ;;XXX: this docstring is incorrect
-       "image height and width are radius * ARG, (0 < radius < 1)"
-     (set! arg (string->number arg)))))
+     (args:make-option
+         (scale) #:required
+         ;;XXX: this docstring is incorrect
+         "image height and width are radius * ARG, (0 < radius < 1)"
+       (set! arg (string->number arg)))))
 
-(receive (options charts)
-    (args:parse (command-line-arguments) opts)
-  (let* ((options-file (alist-ref 'options-file options))
-         (options-file-options
-          (if options-file
-              (with-input-from-file options-file read)
-              '()))
-         (options (append options options-file-options))
-         (output (alist-ref 'output options))
-         (output-options output-skyculture-options)
-         (options
-          (append options
-                  output-options
-                  '((projection . azimuthal-equidistant) ;; default options
-                    (scale . 1000))))
-         (options-charts
-          (alist-ref 'charts options eq? '()))
-         (charts
-          (if (null? charts)
-              options-charts
-              (map (lambda (chart) (or (assq chart options-charts) chart))
-                   (map (o string->symbol string-downcase) charts)))))
-    (unless output
-      (fmt #t "No output set." nl)
-      (exit 1))
-    (when (null? charts)
-      (fmt #t "No charts requested."
-           nl nl (usage-header) nl (args:usage opts) nl)
-      (exit 1))
-    (main (append `((charts . ,charts)) options))))
+  (receive (options charts)
+      (args:parse command-line-arguments opts)
+    (let* ((options-file (alist-ref 'options-file options))
+           (options-file-options
+            (if options-file
+                (with-input-from-file options-file read)
+                '()))
+           (options (append options options-file-options))
+           (output (alist-ref 'output options))
+           (output-options output-skyculture-options)
+           (options
+            (append options
+                    output-options
+                    '((projection . azimuthal-equidistant) ;; default options
+                      (scale . 1000))))
+           (options-charts
+            (alist-ref 'charts options eq? '()))
+           (charts
+            (if (null? charts)
+                options-charts
+                (map (lambda (chart) (or (assq chart options-charts) chart))
+                     (map (o string->symbol string-downcase) charts)))))
+      (unless output
+        (fmt #t "No output set." nl)
+        (exit 1))
+      (when (null? charts)
+        (fmt #t "No charts requested."
+             nl nl (usage-header) nl (args:usage opts) nl)
+        (exit 1))
+      (draw-charts (append `((charts . ,charts)) options)))))
+
+(main (command-line-arguments))
