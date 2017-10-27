@@ -148,7 +148,7 @@ exec csi -s $0 "$@"
 
 
 ;;
-;; Main
+;; Draw Charts
 ;;
 
 (define (boundaries/celestial-center boundaries/celestial)
@@ -218,6 +218,7 @@ exec csi -s $0 "$@"
     ((cmd . coords)
      `(,cmd . ,new-coords))))
 
+
 (define (make-chart plotter projection scale fit)
   (with-instance ((<plotter> plotter))
     (let* ((boundaries/celestial (map draw-command-coords fit))
@@ -260,6 +261,7 @@ exec csi -s $0 "$@"
             (values
              chart
              (lambda () (chart-draw chart command projection->plot)))))))))
+
 
 (define plotter-imlib2
   (make-<plotter>
@@ -339,6 +341,7 @@ exec csi -s $0 "$@"
           (plotter-write (chart-canvas chart) image-filename)
           (fmt #t "wrote " image-filename nl))))))
 
+
 (define (draw-charts options)
   (let* ((projection-name (alist-ref 'projection options))
          (projection (alist-ref projection-name (projections))))
@@ -353,6 +356,11 @@ exec csi -s $0 "$@"
        (draw-chart (make-chart-spec chart-spec) plotter-imlib2
                    (projection-fn projection) options))
      (alist-ref 'charts options))))
+
+
+;;
+;; Main
+;;
 
 (define (main command-line-arguments)
   (define (usage-header)
