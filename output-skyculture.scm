@@ -34,6 +34,7 @@
      data-structures
      filepath
      fmt
+     matchable
      posix)
 
 (import output-chart)
@@ -159,14 +160,17 @@
            (constellationsart.fab-port (open-output-file constellationsart.fab-path)))
       (for-each
        (lambda (chart-spec)
-         ;;XXX: we need to tell draw-chart what filename to write to
-
-         ;;XXX: we need to use the projection to get the tie points for constellationsart.fab
-
          (let* ((chart-spec (make-chart-spec chart-spec))
                 (chart-name (chart-spec-name chart-spec))
+                (chart-filename (string-append (->string chart-name) ".png"))
                 (draw-objects (chart-spec-draw chart-spec))
                 (constellations (map second draw-objects))
+                (constellation-stars (sort (append-map
+                                            (lambda (constellation)
+                                              (hyg-get-records/constellation constellation))
+                                            constellations)
+                                           (lambda (a b)
+                                             (< (alist-ref 'mag a) (alist-ref 'mag b)))))
                 (stars (append-map
                         (lambda (constellation)
                           (let* ((maxmag 4.0)
@@ -183,10 +187,9 @@
                                    (set! maxmag (+ maxmag 0.1))
                                    #t)
                                   (else #f))))
-                             (sort
-                              (hyg-get-records/constellation constellation)
-                              (lambda (a b)
-                                (< (alist-ref 'mag a) (alist-ref 'mag b)))))))
+                             (sort (hyg-get-records/constellation constellation)
+                                   (lambda (a b)
+                                     (< (alist-ref 'mag a) (alist-ref 'mag b)))))))
                         constellations)))
            (chart-spec-draw-set! chart-spec
                                  (map (lambda (ob) (cons 'fit ob))
@@ -197,9 +200,21 @@
            (chart-spec-path-set! chart-spec (filepath:join-path
                                              (list
                                               output-path
-                                              (string-append (->string chart-name) ".png"))))
-           (draw-chart chart-spec plotter-imlib2
-                       (projection-fn projection) options)))
+                                              chart-filename)))
+           (let* ((projection (projection-fn projection))
+                  (chart (draw-chart chart-spec plotter-imlib2 projection options))
+                  (celestial->plot (chart-projection chart)))
+             (fmt constellationsart.fab-port chart-name " " chart-filename)
+             (for-each
+              (lambda (star)
+                (let ((hip (alist-ref 'hip star))
+                      (ra (alist-ref 'ra star))
+                      (dec (alist-ref 'dec star)))
+                  (match-let
+                      (((x y) (celestial->plot ra dec)))
+                    (fmt constellationsart.fab-port " " x " " y " " hip))))
+              (take constellation-stars 3))
+             (fmt constellationsart.fab-port nl))))
        (alist-ref 'charts options)))))
 
 )

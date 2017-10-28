@@ -304,6 +304,7 @@
                  (alist-ref 'mag star)))))
            draw-objects)
           (plotter-write (chart-canvas chart) (chart-spec-path chart-spec))
-          (fmt #t "wrote " (chart-spec-path chart-spec) nl))))))
+          (fmt #t "wrote " (chart-spec-path chart-spec) nl)))
+      chart)))
 
 )
