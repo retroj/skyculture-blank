@@ -165,7 +165,7 @@
 (define (chart-draw chart commands projection)
   (with-instance ((<plotter> (chart-plotter chart)))
     (let* ((canvas (chart-canvas chart))
-           (black (plotter-color 0 0 0 255)))
+           (white (plotter-color 255 255 255 255)))
       (for-each
        (lambda (command)
          (let-values (((instruction attrs points)
@@ -178,7 +178,7 @@
                (unless (null? points)
                  (match-let (((x1 y1) prev)
                              ((x2 y2) (apply projection (first points))))
-                   (plotter-line canvas black x1 y1 x2 y2)
+                   (plotter-line canvas white x1 y1 x2 y2)
                    (loop (list x2 y2) (cdr points))))))))
        commands))))
 
@@ -219,7 +219,8 @@
         (let* ((width (inexact->exact (+ 1 (round (* (- xmax xmin) scale)))))
                (height (inexact->exact (+ 1 (round (* (- ymax ymin) scale)))))
                (canvas (plotter-new width height))
-               (black (plotter-color 0 0 0 255)))
+               (black (plotter-color 0 0 0 255))
+               (white (plotter-color 255 255 255 255)))
           (define (celestial->projection ra dec)
             (apply projection ra dec center/celestial))
           (define (projection->plot x y)
@@ -238,7 +239,8 @@
                   (max 1 (inexact->exact (round (+ b (* a mag)))))))
               (match-let
                   (((x y) (celestial->plot ra dec)))
-                (plotter-fill-circle canvas black x y (star-radius mag)))))
+                (plotter-fill-circle canvas white x y (star-radius mag)))))
+          (plotter-fill-rectangle canvas black 0 0 width height)
           (let ((chart (%make-chart plotter canvas celestial->plot draw-star))
                 (command (map (lambda (c d)
                                 (draw-command-replace-coords c d))
@@ -291,7 +293,7 @@
       ;; drawing remaining objects
       ;;
       (with-instance ((<plotter> plotter))
-        (let ((black (plotter-color 0 0 0 255)))
+        (let ((white (plotter-color 255 255 255 255)))
           (for-each
            (lambda (draw-object)
              ;; ignore 'fit objects, so in the current version that means
