@@ -108,27 +108,28 @@
     (map string->symbol (string-split spec ":"))))
 
 (define-record-type :chart-spec
-  (%make-chart-spec name draw)
+  (%make-chart-spec name draw path)
   chart-spec?
   (name chart-spec-name)
-  (draw chart-spec-draw chart-spec-draw-set!))
+  (draw chart-spec-draw chart-spec-draw-set!)
+  (path chart-spec-path chart-spec-path-set!))
 
 (define (make-chart-spec spec)
   (cond
    ((and (symbol? spec) (string-any #\: (->string spec)))
     (let* ((split (string-split (->string spec) ":"))
            (object-name (string->symbol (second split))))
-      (%make-chart-spec object-name (list (parse-catalog-name spec)))))
+      (%make-chart-spec object-name (list (parse-catalog-name spec)) #f)))
    ((pair? spec)
     (let* ((fst (first spec))
            (props (cdr spec))
            (draw (alist-ref 'draw props)))
       (cond
-       (draw (%make-chart-spec fst (map parse-catalog-name draw)))
+       (draw (%make-chart-spec fst (map parse-catalog-name draw) #f))
        (else
         (let* ((split (string-split (->string fst) ":"))
                (object-name (string->symbol (second split))))
-          (%make-chart-spec object-name (list (parse-catalog-name fst))))))))))
+          (%make-chart-spec object-name (list (parse-catalog-name fst)) #f))))))))
 
 
 ;;;
@@ -290,8 +291,7 @@
       ;; drawing remaining objects
       ;;
       (with-instance ((<plotter> plotter))
-        (let* ((image-filename (string-append (->string chart-name) ".png"))
-               (black (plotter-color 0 0 0 255)))
+        (let ((black (plotter-color 0 0 0 255)))
           (for-each
            (lambda (draw-object)
              ;; ignore 'fit objects, so in the current version that means
@@ -303,7 +303,7 @@
                  (alist-ref 'dec star)
                  (alist-ref 'mag star)))))
            draw-objects)
-          (plotter-write (chart-canvas chart) image-filename)
-          (fmt #t "wrote " image-filename nl))))))
+          (plotter-write (chart-canvas chart) (chart-spec-path chart-spec))
+          (fmt #t "wrote " (chart-spec-path chart-spec) nl))))))
 
 )

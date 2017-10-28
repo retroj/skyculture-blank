@@ -164,6 +164,7 @@
          ;;XXX: we need to use the projection to get the tie points for constellationsart.fab
 
          (let* ((chart-spec (make-chart-spec chart-spec))
+                (chart-name (chart-spec-name chart-spec))
                 (draw-objects (chart-spec-draw chart-spec))
                 (constellations (map second draw-objects))
                 (stars (append-map
@@ -193,6 +194,10 @@
            (chart-spec-draw-set! chart-spec (append (chart-spec-draw chart-spec)
                                                     (map (lambda (star) (cons 'star star))
                                                          stars)))
+           (chart-spec-path-set! chart-spec (filepath:join-path
+                                             (list
+                                              output-path
+                                              (string-append (->string chart-name) ".png"))))
            (draw-chart chart-spec plotter-imlib2
                        (projection-fn projection) options)))
        (alist-ref 'charts options)))))
