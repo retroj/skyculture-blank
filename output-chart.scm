@@ -108,28 +108,33 @@
     (map string->symbol (string-split spec ":"))))
 
 (define-record-type :chart-spec
-  (%make-chart-spec name draw path)
+  (%make-chart-spec name draw path properties)
   chart-spec?
   (name chart-spec-name)
   (draw chart-spec-draw chart-spec-draw-set!)
-  (path chart-spec-path chart-spec-path-set!))
+  (path chart-spec-path chart-spec-path-set!)
+  (properties chart-spec-properties))
 
 (define (make-chart-spec spec)
   (cond
    ((and (symbol? spec) (string-any #\: (->string spec)))
     (let* ((split (string-split (->string spec) ":"))
            (object-name (string->symbol (second split))))
-      (%make-chart-spec object-name (list (parse-catalog-name spec)) #f)))
-   ((pair? spec)
+      (%make-chart-spec object-name (list (parse-catalog-name spec)) #f '())))
+   ((pair? spec) ;; spec with properties
     (let* ((fst (first spec))
            (props (cdr spec))
-           (draw (alist-ref 'draw props)))
+           (draw (alist-ref 'draw props))
+           (props (remove (lambda (x) (eq? 'draw (car x))) props)))
       (cond
-       (draw (%make-chart-spec fst (map parse-catalog-name draw) #f))
+       (draw (%make-chart-spec fst (map parse-catalog-name draw) #f props))
        (else
         (let* ((split (string-split (->string fst) ":"))
                (object-name (string->symbol (second split))))
-          (%make-chart-spec object-name (list (parse-catalog-name fst)) #f))))))))
+          (%make-chart-spec object-name (list (parse-catalog-name fst)) #f props))))))))
+
+(define (chart-spec-get-property chart-spec property)
+  (alist-ref property (chart-spec-properties chart-spec) eq? #f))
 
 
 ;;;

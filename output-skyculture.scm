@@ -115,10 +115,12 @@
      (constellation:pic)
      (constellation:psc)
      (constellation:psa)
-     (constellation:pup)
+     (constellation:pup
+      (no-art . #t))
      (constellation:pyx)
      (constellation:ret)
-     (constellation:ser)
+     (constellation:ser
+      (no-art . #t))
      (constellation:sge)
      (constellation:sgr)
      (constellation:sco)
@@ -132,7 +134,8 @@
      (constellation:tuc)
      (constellation:uma)
      (constellation:umi)
-     (constellation:vel)
+     (constellation:vel
+      (no-art . #t))
      (constellation:vir)
      (constellation:vol)
      (constellation:vul))))
@@ -237,31 +240,30 @@
                 "_(" (wrt (->string (alist-ref 'name constellation-iau))) ")"
                 nl)
 
-           (chart-spec-draw-set! chart-spec
-                                 (map (lambda (ob) (cons 'fit ob))
-                                      (chart-spec-draw chart-spec)))
-           (chart-spec-draw-set! chart-spec (append (chart-spec-draw chart-spec)
-                                                    (map (lambda (star) (cons 'star star))
-                                                         stars)))
-           (chart-spec-path-set! chart-spec (filepath:join-path
-                                             (list
-                                              output-path
-                                              chart-filename)))
-           (let* ((projection (projection-fn projection))
-                  (chart (draw-chart chart-spec plotter-imlib2 projection options))
-                  (celestial->plot (chart-projection chart)))
-             (fmt constellationsart.fab-port (alist-ref 'abbreviation constellation-iau)
-                  " " chart-filename)
-             (for-each
-              (lambda (star)
-                (let ((hip (alist-ref 'hip star))
-                      (ra (alist-ref 'ra star))
-                      (dec (alist-ref 'dec star)))
-                  (match-let
-                      (((x y) (celestial->plot ra dec)))
-                    (fmt constellationsart.fab-port " " x " " y " " hip))))
-              (take constellation-stars 3))
-             (fmt constellationsart.fab-port nl))))
+           (unless (chart-spec-get-property chart-spec 'no-art)
+             (chart-spec-draw-set! chart-spec
+                                   (map (lambda (ob) (cons 'fit ob))
+                                        (chart-spec-draw chart-spec)))
+             (chart-spec-draw-set! chart-spec (append (chart-spec-draw chart-spec)
+                                                      (map (lambda (star) (cons 'star star))
+                                                           stars)))
+             (chart-spec-path-set! chart-spec (filepath:join-path
+                                               (list output-path chart-filename)))
+             (let* ((projection (projection-fn projection))
+                    (chart (draw-chart chart-spec plotter-imlib2 projection options))
+                    (celestial->plot (chart-projection chart)))
+               (fmt constellationsart.fab-port (alist-ref 'abbreviation constellation-iau)
+                    " " chart-filename)
+               (for-each
+                (lambda (star)
+                  (let ((hip (alist-ref 'hip star))
+                        (ra (alist-ref 'ra star))
+                        (dec (alist-ref 'dec star)))
+                    (match-let
+                        (((x y) (celestial->plot ra dec)))
+                      (fmt constellationsart.fab-port " " x " " y " " hip))))
+                (take constellation-stars 3))
+               (fmt constellationsart.fab-port nl)))))
        (alist-ref 'charts options)))))
 
 )
