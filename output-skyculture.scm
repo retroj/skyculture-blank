@@ -39,6 +39,7 @@
 
 (import output-chart)
 (import projection)
+(import catalog-constellation-names)
 (import catalog-hyg-database)
 
 (define output-skyculture-options
@@ -59,7 +60,7 @@
      (constellation:cma)
      (constellation:cmi)
      (constellation:cap)
-     (argonavis
+     (car
       (draw . (constellation:car
                constellation:pup
                constellation:vel)))
@@ -104,7 +105,7 @@
      (constellation:mus)
      (constellation:nor)
      (constellation:oct)
-     (ophiuchus-serpens
+     (oph
       (draw . (constellation:oph constellation:ser)))
      (constellation:ori)
      (constellation:pav)
@@ -114,8 +115,10 @@
      (constellation:pic)
      (constellation:psc)
      (constellation:psa)
+     (constellation:pup)
      (constellation:pyx)
      (constellation:ret)
+     (constellation:ser)
      (constellation:sge)
      (constellation:sgr)
      (constellation:sco)
@@ -129,6 +132,7 @@
      (constellation:tuc)
      (constellation:uma)
      (constellation:umi)
+     (constellation:vel)
      (constellation:vir)
      (constellation:vol)
      (constellation:vul))))
@@ -153,11 +157,34 @@
         (fmt #t output-path " exists and is not a skyculture directory." nl)
         (exit 1))))
      (else
-      (create-directory output-path #t)))
+      (create-directory output-path #t)
+      (fmt #t "Created directory " output-path nl)))
+
+    ;; create info.ini
+    ;;
+    (with-output-to-file (filepath:join-path (list output-path "info.ini"))
+      (lambda ()
+        (fmt #t "[info]" nl
+             "name = Blank" nl
+             "author = Skyculture-blank" nl
+             "boundaries = generic" nl
+             "descriptionSource = https://github.com/retroj/skyculture-blank/" nl
+             )))
+
+    (with-output-to-file (filepath:join-path (list output-path "description.en.utf8"))
+      (lambda () (fmt #t "Blank Sky Culture" nl)))
 
     (let* ((constellationsart.fab-path (filepath:join-path
                                         (list output-path "constellationsart.fab")))
-           (constellationsart.fab-port (open-output-file constellationsart.fab-path)))
+           (constellationsart.fab-port (open-output-file constellationsart.fab-path))
+           (constellationship.fab-path (filepath:join-path
+                                        (list output-path "constellationship.fab")))
+           (constellationship.fab-port (open-output-file constellationship.fab-path))
+           (constellation_names.eng.fab-path (filepath:join-path
+                                              (list output-path
+                                                    "constellation_names.eng.fab")))
+           (constellation_names.eng.fab-port (open-output-file
+                                              constellation_names.eng.fab-path)))
       (for-each
        (lambda (chart-spec)
          (let* ((chart-spec (make-chart-spec chart-spec))
@@ -165,6 +192,8 @@
                 (chart-filename (string-append (->string chart-name) ".png"))
                 (draw-objects (chart-spec-draw chart-spec))
                 (constellations (map second draw-objects))
+                (constellation-iau (or (constellation-name-lookup chart-name)
+                                       `((abbreviation . ,chart-name) (name . ,chart-name))))
                 (constellation-stars (sort (append-map
                                             (lambda (constellation)
                                               (hyg-get-records/constellation constellation))
@@ -191,6 +220,23 @@
                                    (lambda (a b)
                                      (< (alist-ref 'mag a) (alist-ref 'mag b)))))))
                         constellations)))
+
+           (fmt constellationship.fab-port
+                (alist-ref 'abbreviation constellation-iau)
+                " 1 "
+                (alist-ref 'hip (first constellation-stars))
+                " "
+                (alist-ref 'hip (first constellation-stars))
+                nl)
+
+           (fmt constellation_names.eng.fab-port
+                (alist-ref 'abbreviation constellation-iau)
+                "\t"
+                (wrt (->string (alist-ref 'name constellation-iau)))
+                "\t"
+                "_(" (wrt (->string (alist-ref 'name constellation-iau))) ")"
+                nl)
+
            (chart-spec-draw-set! chart-spec
                                  (map (lambda (ob) (cons 'fit ob))
                                       (chart-spec-draw chart-spec)))
@@ -204,7 +250,8 @@
            (let* ((projection (projection-fn projection))
                   (chart (draw-chart chart-spec plotter-imlib2 projection options))
                   (celestial->plot (chart-projection chart)))
-             (fmt constellationsart.fab-port chart-name " " chart-filename)
+             (fmt constellationsart.fab-port (alist-ref 'abbreviation constellation-iau)
+                  " " chart-filename)
              (for-each
               (lambda (star)
                 (let ((hip (alist-ref 'hip star))

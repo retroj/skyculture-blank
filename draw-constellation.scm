@@ -38,6 +38,7 @@ exec csi -s $0 "$@"
      matchable)
 
 (load "catalog.scm")
+(load "catalog-constellation-names")
 (load "catalog-pbarbier-constellation-boundaries")
 (load "catalog-hyg-database")
 (load "projection")
