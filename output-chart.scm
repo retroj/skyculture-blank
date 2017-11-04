@@ -209,7 +209,7 @@
      `(,cmd . ,new-coords))))
 
 
-(define (make-chart plotter projection scale fit)
+(define (make-chart plotter projection scale padding fit)
   (with-instance ((<plotter> plotter))
     (let* ((boundaries/celestial (map draw-command-coords fit))
            (center/celestial (boundaries/celestial-center boundaries/celestial))
@@ -223,14 +223,18 @@
                     (apply append boundaries/projection))))
         (let* ((width (inexact->exact (+ 1 (round (* (- xmax xmin) scale)))))
                (height (inexact->exact (+ 1 (round (* (- ymax ymin) scale)))))
-               (canvas (plotter-new width height))
+               (pad-width (inexact->exact (round (* width padding))))
+               (pad-height (inexact->exact (round (* height padding))))
+               (canvas-width (+ pad-width width pad-width))
+               (canvas-height (+ pad-height height pad-height))
+               (canvas (plotter-new canvas-width canvas-height))
                (black (plotter-color 0 0 0 255))
                (white (plotter-color 255 255 255 255)))
           (define (celestial->projection ra dec)
             (apply projection ra dec center/celestial))
           (define (projection->plot x y)
-            (list (inexact->exact (round (* (- (- x xmax)) scale)))
-                  (inexact->exact (round (* (- (- y ymax)) scale)))))
+            (list (+ pad-width (inexact->exact (round (* (- (- x xmax)) scale))))
+                  (+ pad-height (inexact->exact (round (* (- (- y ymax)) scale))))))
           (define (celestial->plot ra dec)
             (apply projection->plot (celestial->projection ra dec)))
           (define (draw-star ra dec mag)
@@ -245,7 +249,7 @@
               (match-let
                   (((x y) (celestial->plot ra dec)))
                 (plotter-fill-circle canvas white x y (star-radius mag)))))
-          (plotter-fill-rectangle canvas black 0 0 width height)
+          (plotter-fill-rectangle canvas black 0 0 canvas-width canvas-height)
           (let ((chart (%make-chart plotter canvas celestial->plot draw-star))
                 (command (map (lambda (c d)
                                 (draw-command-replace-coords c d))
@@ -284,6 +288,7 @@
     (let-values (((chart draw-constellation-boundary)
                   ;; fitting
                   (make-chart plotter projection (alist-ref 'scale options)
+                              (alist-ref 'padding options)
                               (map (lambda (b) (cons* 'path '(@ (closed . #t)) b))
                                    boundaries/celestial))))
       ;;XXX: how about instead of returning a closure, we cache the data

@@ -108,7 +108,8 @@ exec csi -s $0 "$@"
             (append options
                     output-options
                     '((projection . azimuthal-equidistant) ;; default options
-                      (scale . 1000))))
+                      (scale . 1000)
+                      (padding . 0.0))))
            (options-charts
             (alist-ref 'charts options eq? '()))
            (charts
