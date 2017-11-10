@@ -138,7 +138,7 @@
      (constellation:lac
       (reference-stars . (hip:110538 hip:111104 hip:109937)))
      (constellation:leo
-      (reference-stars . (hip:57632 hip:49669 hip:47908)))
+      (reference-stars . (hip:47908 hip:55434 hip:54872)))
      (constellation:lmi
       (reference-stars . (hip:53229 hip:46952 hip:50303)))
      (constellation:lep
@@ -223,7 +223,7 @@
      (constellation:vol
       (reference-stars . (hip:44382 hip:35228 hip:34481)))
      (constellation:vul
-      (reference-stars . (hip:98543 hip:95771 hip:94703))))))
+      (reference-stars . (hip:98543 hip:95771 hip:103004))))))
 
 (define (get-reference-star sym)
   (let* ((s (->string sym))
