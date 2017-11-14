@@ -20,11 +20,19 @@ to produce chart sets for other traditions which do not line up with the
 IAU constellations.  Also, not all charts map to the sphere as well as
 they probably could, so I am continuing to tweak them.
 
+## The Charts
+
+If you would just like to download the set of charts to draw on and don't
+care about the software that produced them, visit
+the
+[project releases page](https://github.com/retroj/skyculture-blank/releases) and
+download the newest version of `skyculture-blank.zip`.
+
 ## Data
 
-To use skyculture-blank, you will need to obtain some astronomical catalog
-data.  On unix-like machines, make sure that you have git and wget, and do
-the following:
+To use the software to create your own charts, you will need to obtain
+some astronomical catalog data.  On unix-like machines, make sure that you
+have git and wget, and do the following:
 
     cd data
     ./git-clone-hyg-database
