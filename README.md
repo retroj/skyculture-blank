@@ -13,9 +13,12 @@ to make a blank that generates the boilerplate of the format for you, as
 well as template images that an artist can use as guides in order to
 produce new constellation artwork.
 
-This program not done yet.  At the moment, all it does is make the
-template images in a simplified form.  It doesn't yet make the other files
-needed in a skyculture.  That's coming soon though, so watch this space.
+This program is a work in progress.  It is currently able to make a
+skyculture template of the 88 IAU constellations (including the special
+combinations Ophiuchus + Serpens and Argo Navis).  Future work is planned
+to produce chart sets for other traditions which do not line up with the
+IAU constellations.  Also, not all charts map to the sphere as well as
+they probably could, so I am continuing to tweak them.
 
 ## Data
 
