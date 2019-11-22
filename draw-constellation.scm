@@ -37,13 +37,13 @@ exec csi -s $0 "$@"
      fmt
      matchable)
 
-(load "catalog.scm")
-(load "catalog-constellation-names")
-(load "catalog-pbarbier-constellation-boundaries")
-(load "catalog-hyg-database")
-(load "projection")
-(load "output-chart")
-(load "output-skyculture")
+(load "modules/catalog.scm")
+(load "modules/catalog-constellation-names")
+(load "modules/catalog-pbarbier-constellation-boundaries")
+(load "modules/catalog-hyg-database")
+(load "modules/projection")
+(load "modules/output-chart")
+(load "modules/output-skyculture")
 
 (import output-skyculture)
 
