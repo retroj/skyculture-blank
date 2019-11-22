@@ -69,7 +69,7 @@ exec csi -s $0 "$@"
 
 (define (main command-line-arguments)
   (define (usage-header)
-    (fmt #f "usage: draw-constellation [options] [const] ..." nl nl
+    (fmt #f "usage: astronomy-multitool [options] [const] ..." nl nl
          " const: IAU abbreviation of a constellation (ori)" nl))
 
   (define opts
