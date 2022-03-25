@@ -26,7 +26,8 @@
 ;; ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 (module output-skyculture
-    *
+    (output-skyculture
+     output-skyculture-options)
 
 (import scheme)
 (import (chicken base))
@@ -232,6 +233,79 @@
          (hip (string->number (second (string-split s ":")))))
     (hyg-get-records/designator hip)))
 
+;;XXX for a multi-constellation chart, this returns a list containing
+;;    minstars of each constellation
+(define (constellations-get-bright-stars constellations maxmag minstars)
+  (append-map
+   (lambda (constellation)
+     (let ((got 0))
+       (take-while
+        (lambda (star)
+          (let ((mag (alist-ref 'mag star)))
+            (cond
+             ((< mag maxmag)
+              (set! got (add1 got))
+              #t)
+             ((< got minstars)
+              (set! got (add1 got))
+              (set! maxmag (+ maxmag 0.1))
+              #t)
+             (else #f))))
+        (sort (hyg-get-records/constellation constellation)
+              (lambda (a b) (< (alist-ref 'mag a) (alist-ref 'mag b)))))))
+   constellations))
+
+(define (skyculture-ensure-output-path output-path)
+  (cond
+   ((file-exists? output-path)
+    (cond
+     ((directory output-path)
+      ;;XXX: we should require a command line option to overwrite
+      (fmt #t "Warning: writing to existing directory: " output-path nl))
+     (else
+      (fmt #t output-path " exists and is not a skyculture directory." nl)
+      (exit 1))))
+   (else
+    (create-directory output-path #t)
+    (fmt #t "Created directory " output-path nl))))
+
+(define (skyculture-write-infoini output-options)
+  (let ((output-path (alist-ref 'path output-options)))
+    (with-output-to-file (filepath:join-path (list output-path "info.ini"))
+      (lambda ()
+        (fmt #t "[info]" nl
+             "name = Blank" nl
+             "author = Skyculture-blank" nl
+             "boundaries = generic" nl
+             "descriptionSource = https://github.com/retroj/skyculture-blank/" nl
+             )))))
+
+(define (skyculture-write-description output-options)
+  (let ((output-path (alist-ref 'path output-options)))
+    (with-output-to-file (filepath:join-path (list output-path "description.en.utf8"))
+      (lambda () (fmt #t "Blank Sky Culture" nl)))))
+
+(define (skyculture-write-constellationship-record constellationship.fab-port
+                                                   constellation-iau
+                                                   some-star-in-constellation)
+  (fmt constellationship.fab-port
+       (alist-ref 'abbreviation constellation-iau)
+       " 1 "
+       (alist-ref 'hip some-star-in-constellation)
+       " "
+       (alist-ref 'hip some-star-in-constellation)
+       nl))
+
+(define (skyculture-write-constellationnames-record constellation_names.eng.fab-port
+                                                    constellation-iau)
+  (fmt constellation_names.eng.fab-port
+       (alist-ref 'abbreviation constellation-iau)
+       "\t"
+       (wrt (->string (alist-ref 'name constellation-iau)))
+       "\t"
+       "_(" (wrt (->string (alist-ref 'name constellation-iau))) ")"
+       nl))
+
 (define (output-skyculture output-options options)
   (let* ((projection-name (alist-ref 'projection options))
          (projection (alist-ref projection-name (projections)))
@@ -242,32 +316,13 @@
     (unless output-path
       (fmt #t "No output path specified" nl)
       (exit 1))
-    (cond
-     ((file-exists? output-path)
-      (cond
-       ((directory output-path)
-        ;;XXX: we should require a command line option to overwrite
-        (fmt #t "Warning: writing to existing directory: " output-path nl))
-       (else
-        (fmt #t output-path " exists and is not a skyculture directory." nl)
-        (exit 1))))
-     (else
-      (create-directory output-path #t)
-      (fmt #t "Created directory " output-path nl)))
+    (skyculture-ensure-output-path output-path)
 
-    ;; create info.ini
-    ;;
-    (with-output-to-file (filepath:join-path (list output-path "info.ini"))
-      (lambda ()
-        (fmt #t "[info]" nl
-             "name = Blank" nl
-             "author = Skyculture-blank" nl
-             "boundaries = generic" nl
-             "descriptionSource = https://github.com/retroj/skyculture-blank/" nl
-             )))
+    (skyculture-write-infoini output-options)
+    (fmt #t "wrote info.ini" nl)
 
-    (with-output-to-file (filepath:join-path (list output-path "description.en.utf8"))
-      (lambda () (fmt #t "Blank Sky Culture" nl)))
+    (skyculture-write-description output-options)
+    (fmt #t "wrote description.en.utf8" nl)
 
     (let* ((constellationsart.fab-path (filepath:join-path
                                         (list output-path "constellationsart.fab")))
@@ -289,48 +344,13 @@
                 (constellations (map second draw-objects))
                 (constellation-iau (or (constellation-name-lookup chart-name)
                                        `((abbreviation . ,chart-name) (name . ,chart-name))))
-                (constellation-stars (sort (append-map
-                                            (lambda (constellation)
-                                              (hyg-get-records/constellation constellation))
-                                            constellations)
-                                           (lambda (a b)
-                                             (< (alist-ref 'mag a) (alist-ref 'mag b)))))
-                (stars (append-map
-                        (lambda (constellation)
-                          (let* ((maxmag 4.0)
-                                 (got 0))
-                            (take-while
-                             (lambda (star)
-                               (let ((mag (alist-ref 'mag star)))
-                                 (cond
-                                  ((< mag maxmag)
-                                   (set! got (add1 got))
-                                   #t)
-                                  ((< got 10)
-                                   (set! got (add1 got))
-                                   (set! maxmag (+ maxmag 0.1))
-                                   #t)
-                                  (else #f))))
-                             (sort (hyg-get-records/constellation constellation)
-                                   (lambda (a b)
-                                     (< (alist-ref 'mag a) (alist-ref 'mag b)))))))
-                        constellations)))
+                (stars (constellations-get-bright-stars constellations 4.0 10)))
 
-           (fmt constellationship.fab-port
-                (alist-ref 'abbreviation constellation-iau)
-                " 1 "
-                (alist-ref 'hip (first constellation-stars))
-                " "
-                (alist-ref 'hip (first constellation-stars))
-                nl)
-
-           (fmt constellation_names.eng.fab-port
-                (alist-ref 'abbreviation constellation-iau)
-                "\t"
-                (wrt (->string (alist-ref 'name constellation-iau)))
-                "\t"
-                "_(" (wrt (->string (alist-ref 'name constellation-iau))) ")"
-                nl)
+           (skyculture-write-constellationship-record constellationship.fab-port
+                                                      constellation-iau
+                                                      (first stars))
+           (skyculture-write-constellationnames-record constellation_names.eng.fab-port
+                                                       constellation-iau)
 
            (unless (chart-spec-get-property chart-spec 'no-art)
              (chart-spec-draw-set! chart-spec
