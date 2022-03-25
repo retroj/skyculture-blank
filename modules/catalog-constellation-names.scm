@@ -28,16 +28,15 @@
 (module catalog-constellation-names
     (constellation-name-lookup)
 
-(import chicken scheme)
-
-(use (srfi 1 13)
-     data-structures
-     extras
-     fmt
-     matchable
-     ports
-     posix
-     utils)
+(import scheme)
+(import (chicken base))
+(import (chicken io))
+(import (chicken process))
+(import (chicken string))
+(import (srfi 1))
+(import (srfi 13))
+(import fmt)
+(import matchable)
 
 (import catalog)
 

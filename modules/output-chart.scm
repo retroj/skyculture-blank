@@ -28,14 +28,15 @@
 (module output-chart
     *
 
-(import chicken scheme)
-
-(use (srfi 1 13)
-     data-structures
-     fmt
-     imlib2
-     matchable
-     typeclass)
+(import scheme)
+(import (chicken base))
+(import (chicken string))
+(import (srfi 1))
+(import (srfi 13))
+(import fmt)
+(import imlib2)
+(import matchable)
+(import typeclass)
 
 (import catalog)
 

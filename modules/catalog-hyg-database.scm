@@ -29,18 +29,19 @@
     (hyg-get-records/constellation
      hyg-get-records/designator)
 
-(import chicken scheme)
-
-(use (srfi 1 13)
-     data-structures
-     extras
-     fmt
-     (only list-utils zip-alist)
-     matchable
-     ports
-     posix
-     regex
-     utils)  
+(import scheme)
+(import (chicken base))
+(import (chicken file))
+(import (chicken io))
+(import (chicken port))
+(import (chicken process))
+(import (chicken string))
+(import (srfi 1))
+(import (srfi 13))
+(import fmt)
+(import (only list-utils zip-alist))
+(import matchable)
+(import regex)
 
 (import catalog)
 
@@ -108,11 +109,6 @@
     (lambda ()
       (fmt #t "error: " msg nl)
       (exit status))))
-
-(define (file-readable? file)
-  (and (file-exists? file)
-       (regular-file? file)
-       (file-read-access? file)))
 
 
 ;; HYG Database

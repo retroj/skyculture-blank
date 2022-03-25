@@ -29,14 +29,15 @@
     (read-boundary
      read-constellation-lines)
 
-(import chicken scheme)
-
-(use (srfi 1 13)
-     data-structures
-     extras
-     fmt
-     matchable
-     ports)
+(import scheme)
+(import (chicken base))
+(import (chicken io))
+(import (chicken port))
+(import (chicken string))
+(import (srfi 1))
+(import (srfi 13))
+(import fmt)
+(import matchable)
 
 (import catalog)
 

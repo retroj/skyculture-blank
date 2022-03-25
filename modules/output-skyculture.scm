@@ -28,14 +28,16 @@
 (module output-skyculture
     *
 
-(import chicken scheme)
-
-(use (srfi 1 13)
-     data-structures
-     filepath
-     fmt
-     matchable
-     posix)
+(import scheme)
+(import (chicken base))
+(import (chicken file))
+(import (chicken sort))
+(import (chicken string))
+(import (srfi 1))
+(import (srfi 13))
+(import filepath)
+(import fmt)
+(import matchable)
 
 (import output-chart)
 (import projection)

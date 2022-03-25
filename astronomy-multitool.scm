@@ -29,13 +29,14 @@ exec csi -s $0 "$@"
 ;; OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ;; ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-(import chicken scheme)
-
-(use (srfi 1 13 99)
-     args
-     (only data-structures alist-ref)
-     fmt
-     matchable)
+(import (chicken base))
+(import (chicken process-context))
+(import (srfi 1))
+(import (srfi 13))
+(import (srfi 99))
+(import args)
+(import fmt)
+(import matchable)
 
 (load "modules/catalog.scm")
 (load "modules/catalog-constellation-names")

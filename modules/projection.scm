@@ -34,17 +34,22 @@
      gnomonic
      stereographic)
 
-(import chicken scheme)
-
-(use (srfi 99)
-     cells
-     matchable)
+(import scheme)
+(import (chicken base))
+(import (srfi 99))
+(import matchable)
 
 (define tau (* 4.0 (asin 1.0)))
 (define tau/2 (* 2.0 (asin 1.0)))
 (define tau/4 (asin 1.0))
 
-(define projections (cell (list)))
+(define projections ;;XXX is there a cells library for chicken 5?
+  (let ((val #f))
+    (lambda (#!optional x)
+      (when x (set! val x))
+      val)))
+
+(projections (list))
 
 (define-record-type :projection
   (make-projection name fn)

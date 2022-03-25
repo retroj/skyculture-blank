@@ -33,9 +33,11 @@
      define-catalog
      catalog-find)
 
-(import chicken scheme)
-
-(use (srfi 1 13 99))
+(import scheme)
+(import (chicken base))
+(import (srfi 1))
+(import (srfi 13))
+(import (srfi 99))
 
 (define catalogs (make-parameter (list)))
 
