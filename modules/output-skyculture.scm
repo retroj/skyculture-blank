@@ -32,6 +32,7 @@
 (import scheme)
 (import (chicken base))
 (import (chicken file))
+(import (chicken port))
 (import (chicken sort))
 (import (chicken string))
 (import (srfi 1))
@@ -233,27 +234,32 @@
          (hip (string->number (second (string-split s ":")))))
     (hyg-get-records/designator hip)))
 
-;;XXX for a multi-constellation chart, this returns a list containing
-;;    minstars of each constellation
-(define (constellations-get-bright-stars constellations maxmag minstars)
+(define (constellation-get-bright-stars constellation maxmag minstars)
+  (let ((got 0))
+    (take-while
+     (lambda (star)
+       (let ((mag (alist-ref 'mag star)))
+         (cond
+          ((< mag maxmag)
+           (set! got (add1 got))
+           #t)
+          ((< got minstars)
+           (set! got (add1 got))
+           (set! maxmag (+ maxmag 0.1))
+           #t)
+          (else #f))))
+     (sort (hyg-get-records/constellation constellation)
+           (lambda (a b) (< (alist-ref 'mag a) (alist-ref 'mag b)))))))
+
+(define (draw-objects-to-stars draw-objects)
   (append-map
-   (lambda (constellation)
-     (let ((got 0))
-       (take-while
-        (lambda (star)
-          (let ((mag (alist-ref 'mag star)))
-            (cond
-             ((< mag maxmag)
-              (set! got (add1 got))
-              #t)
-             ((< got minstars)
-              (set! got (add1 got))
-              (set! maxmag (+ maxmag 0.1))
-              #t)
-             (else #f))))
-        (sort (hyg-get-records/constellation constellation)
-              (lambda (a b) (< (alist-ref 'mag a) (alist-ref 'mag b)))))))
-   constellations))
+   (lambda (draw-object)
+     (match draw-object
+       (('constellation c)
+        (constellation-get-bright-stars c 4.0 10))
+       (('hip h)
+        (list (hyg-get-records/designator (with-input-from-string (->string h) read))))))
+   draw-objects))
 
 (define (skyculture-ensure-output-path output-path)
   (cond
@@ -340,11 +346,10 @@
          (let* ((chart-spec (make-chart-spec chart-spec))
                 (chart-name (chart-spec-name chart-spec))
                 (chart-filename (string-append (->string chart-name) ".png"))
-                (draw-objects (chart-spec-draw chart-spec))
-                (constellations (map second draw-objects))
                 (constellation-iau (or (constellation-name-lookup chart-name)
                                        `((abbreviation . ,chart-name) (name . ,chart-name))))
-                (stars (constellations-get-bright-stars constellations 4.0 10)))
+                (draw-objects (chart-spec-draw chart-spec))
+                (stars (draw-objects-to-stars draw-objects)))
 
            (skyculture-write-constellationship-record constellationship.fab-port
                                                       constellation-iau

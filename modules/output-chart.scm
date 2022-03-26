@@ -144,7 +144,11 @@
 
 (define (boundaries/celestial-center boundaries/celestial)
   (let ((cartesian-points
-         (map (match-lambda ((ra dec) (celestial->cartesian ra dec 1.0)))
+         (map (lambda (starlike)
+                (celestial->cartesian
+                 (alist-ref 'rarad starlike)
+                 (alist-ref 'decrad starlike)
+                 1.0))
               (apply append boundaries/celestial))))
     (take
      (apply cartesian->celestial (cartesian-center cartesian-points))
@@ -216,8 +220,12 @@
            (center/celestial (boundaries/celestial-center boundaries/celestial))
            (boundaries/projection
             (map (lambda (boundary/celestial)
-                   (map (match-lambda ((ra dec) (apply projection ra dec center/celestial)))
-                        boundary/celestial))
+                   (map
+                    (lambda (starlike)
+                      (let ((ra (alist-ref 'rarad starlike))
+                            (dec (alist-ref 'decrad starlike)))
+                        (apply projection ra dec center/celestial)))
+                    boundary/celestial))
                  boundaries/celestial)))
       (match-let (((xmin ymin xmax ymax)
                    (cartesian2-bounding-box
@@ -281,10 +289,11 @@
                                         #f))
                        draw-objects))
          (boundaries/celestial (append-map
-                                (match-lambda
-                                  ((catalog object)
-                                   ((catalog-query (catalog-find catalog))
-                                    object)))
+                                (lambda (fit-object)
+                                  (match fit-object
+                                    ((catalog object)
+                                     ((catalog-query (catalog-find catalog))
+                                      fit-object))))
                                 fit-objects)))
     (let-values (((chart draw-constellation-boundary)
                   ;; fitting

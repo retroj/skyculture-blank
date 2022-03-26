@@ -189,6 +189,11 @@
                (string-split rec "," #t)))))
       records-unfiltered))))
 
+(define (hyg-get-records/query pattern)
+  (match pattern
+    (('hip h)
+     (list (list (hyg-get-records/designator (with-input-from-string (->string h) read)))))))
+
 (unless (file-readable? (hyg-database))
   (abort-program
    (fmt #f "HYG database (" (hyg-database) ") not found or not readable.\n"
@@ -203,6 +208,6 @@
                identity))
          hyg-database-fields)))
 
-(define-catalog 'hyg-database '(star) hyg-get-records/constellation)
+(define-catalog 'hyg-database '(star hip) hyg-get-records/query)
 
 )

@@ -54,6 +54,11 @@
    (* tau (/ ra 24.0))
    (* tau (/ dec 360.0))))
 
+(define (celestial-units->starlike ra dec)
+  (list
+   (cons 'rarad (* tau (/ ra 24.0)))
+   (cons 'decrad (* tau (/ dec 360.0)))))
+
 (define (constellation-normalize const)
   (string->symbol (string-downcase (symbol->string const))))
 
@@ -76,7 +81,7 @@
             (cond
              ((eq? const constellation)
               (loop (read-line)
-                    (cons (celestial-units->radians ra dec)
+                    (cons (celestial-units->starlike ra dec)
                           result)))
              ((null? result)
               (loop (read-line) result))
@@ -151,7 +156,12 @@
                                   result)))))
                (else (loop (read-line) current-segment result)))))))))))
 
+(define (pbarbier-constellation-boundaries-query pattern)
+  (match pattern
+    (('constellation c)
+     (read-boundary c))))
+
 (define-catalog 'pbarbier-constellation-boundaries
-  '(constellation) read-boundary)
+  '(constellation) pbarbier-constellation-boundaries-query)
 
 )
