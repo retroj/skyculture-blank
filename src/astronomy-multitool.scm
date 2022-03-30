@@ -30,6 +30,7 @@ exec csi -s $0 "$@"
 ;; ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 (import (chicken base))
+(import (chicken load))
 (import (chicken process-context))
 (import (srfi 1))
 (import (srfi 13))
@@ -38,13 +39,13 @@ exec csi -s $0 "$@"
 (import fmt)
 (import matchable)
 
-(load "modules/catalog.scm")
-(load "modules/catalog-constellation-names")
-(load "modules/catalog-pbarbier-constellation-boundaries")
-(load "modules/catalog-hyg-database")
-(load "modules/projection")
-(load "modules/output-chart")
-(load "modules/output-skyculture")
+(load-relative "modules/catalog.scm")
+(load-relative "modules/catalog-constellation-names")
+(load-relative "modules/catalog-pbarbier-constellation-boundaries")
+(load-relative "modules/catalog-hyg-database")
+(load-relative "modules/projection")
+(load-relative "modules/output-chart")
+(load-relative "modules/output-skyculture")
 
 (import output-skyculture)
 
