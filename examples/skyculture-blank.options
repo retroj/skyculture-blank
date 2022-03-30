@@ -2,4 +2,4 @@
 ((scale . 1000)
  (padding . 0.5)
  (output skyculture
-         (path . "blank")))
+         (path . "skyculture-blank")))
