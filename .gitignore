@@ -1,3 +1,4 @@
 *.png
 data/HYG-Database
 data/constellations-pbarbier/*.txt
+/release
