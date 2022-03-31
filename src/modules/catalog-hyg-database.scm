@@ -44,6 +44,7 @@
 (import regex)
 
 (import catalog)
+(import global)
 
 (define tau (* 4.0 (asin 1.0)))
 
@@ -97,8 +98,8 @@
 (define hyg-database-fields #f)
 (define hyg-database-field-converters #f)
 
-(define hyg-database (make-parameter "data/HYG-Database/hygdata_v3.csv"))
-;;(define hyg-database (make-parameter "hygfull.csv"))
+(define hyg-database
+  (make-parameter (program-asset "data/HYG-Database/hygdata_v3.csv")))
 
 
 ;; Utils

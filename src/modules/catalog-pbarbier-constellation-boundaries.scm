@@ -39,13 +39,17 @@
 (import fmt)
 (import matchable)
 
+(import global)
 (import catalog)
 
-(define boundaries-filename "data/constellations-pbarbier/bound_in_20.txt")
+(define boundaries-filename
+  (program-asset "data/constellations-pbarbier/bound_in_20.txt"))
 
-(define lines-filename "data/constellations-pbarbier/lines_in_20.txt")
+(define lines-filename
+  (program-asset "data/constellations-pbarbier/lines_in_20.txt"))
 
-(define verts-filename "data/constellations-pbarbier/verts_18.txt")
+(define verts-filename
+  (program-asset "data/constellations-pbarbier/verts_18.txt"))
 
 (define tau (* 4.0 (asin 1.0)))
 

@@ -39,6 +39,7 @@ exec csi -s $0 "$@"
 (import fmt)
 (import matchable)
 
+(load-relative "modules/global.scm")
 (load-relative "modules/catalog.scm")
 (load-relative "modules/catalog-constellation-names")
 (load-relative "modules/catalog-pbarbier-constellation-boundaries")

@@ -1,5 +1,5 @@
 
-;; Copyright 2016 John J Foerch. All rights reserved.
+;; Copyright 2022 John J Foerch. All rights reserved.
 ;;
 ;; Redistribution and use in source and binary forms, with or without
 ;; modification, are permitted provided that the following conditions are
@@ -25,45 +25,33 @@
 ;; OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 ;; ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-(module catalog-constellation-names
-    (constellation-name-lookup)
+(module global
+    (program-asset)
 
 (import scheme)
 (import (chicken base))
-(import (chicken io))
-(import (chicken process))
-(import (chicken string))
+(import (chicken file posix))
+(import (chicken process-context))
 (import (srfi 1))
-(import (srfi 13))
-(import fmt)
-(import matchable)
+(import filepath)
 
-(import global)
-(import catalog)
+(define program-install-path (make-parameter #f))
 
-(define catalog-filename
-  (program-asset  "data/constellation-names/iau.csv"))
+(define (program-asset relpath)
+  (filepath:combine (program-install-path) relpath))
 
-(define (constellation-normalize const)
-  (string->symbol (string-downcase (symbol->string const))))
+(define (global-setup)
+  (program-install-path
+   (let ((install-dir
+          (if (symbolic-link? (program-name))
+              (read-symbolic-link (program-name))
+              (program-name))))
+     (filepath:join-path
+      (drop-right
+       (filepath:split-path
+        (filepath:combine (current-directory) install-dir))
+       3)))))
 
-
-(define (constellation-name-lookup spec)
-  (let ((grep-results
-         (with-input-from-pipe
-          (string-join
-           (map qs (list "grep" "-i" (string-append "^" (->string spec)) catalog-filename))
-           " ")
-          read-lines)))
-    (if (null? grep-results)
-        #f
-        (map cons (list 'abbreviation 'name)
-             (map
-              string-trim-both
-              (string-split (first grep-results)
-                            ","))))))
-
-(define-catalog 'constellation-names
-  '(constellation-names) constellation-name-lookup)
+(global-setup)
 
 )
